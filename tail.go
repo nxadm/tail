@@ -291,8 +291,8 @@ func (tail *Tail) tailFileSync() {
 			}
 
 			if tail.Follow && line != "" {
-                tail.sendLine(line)
-            	if err := tail.seekEnd(); err != nil {
+				tail.sendLine(line)
+				if err := tail.seekEnd(); err != nil {
 					tail.Kill(err)
 					return
 				}

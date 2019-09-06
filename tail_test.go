@@ -8,8 +8,8 @@ package tail
 
 import (
 	_ "fmt"
+	"io"
 	"io/ioutil"
-    "io"
 	"os"
 	"strings"
 	"testing"
