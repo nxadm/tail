@@ -6,9 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
-
-
+	"os"
 	"github.com/nxadm/tail"
 )
 
@@ -37,7 +35,7 @@ func main() {
 	}
 
 	if n != 0 {
-		config.Location = &tail.SeekInfo{-n, os.SeekEnd}
+		config.Location = &tail.SeekInfo{-n, io.SeekEnd}
 	}
 
 	done := make(chan bool)
