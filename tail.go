@@ -413,7 +413,7 @@ func (tail *Tail) sendLine(line string) bool {
 	if tail.Config.RateLimiter != nil {
 		ok := tail.Config.RateLimiter.Pour(uint16(len(lines)))
 		if !ok {
-			tail.Logger.Printf("Leaky bucket full (%v); entering 1s cooloff period.\n",
+			tail.Logger.Printf("Leaky bucket full (%v); entering 1s cooloff period.",
 				tail.Filename)
 			return false
 		}
