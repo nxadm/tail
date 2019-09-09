@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/nxadm/tail.svg?branch=master)](https://travis-ci.org/nxadm/tail)
 
 This is repo is forked from the dormant upstream repo at
-[hpcloud](https://github.com/nxadm/tail). This fork adds support for go
+[hpcloud](https://github.com/hpcloud/tail). This fork adds support for go
 modules, updates the dependencies, adds features and fixes bugs. Go 1.9 is
 the oldest compiler release supported.
 
