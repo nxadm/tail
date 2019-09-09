@@ -271,8 +271,7 @@ func (tail *Tail) tailFileSync() {
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
-				msg := ("Too much log activity; waiting a second " +
-					"before resuming tailing")
+				msg := ("Too much log activity; waiting a second before resuming tailing")
 				tail.Lines <- &Line{msg, tail.lineNum, time.Now(), errors.New(msg)}
 				select {
 				case <-time.After(time.Second):
