@@ -27,7 +27,7 @@ var (
 
 type Line struct {
 	Text string
-	Num int
+	Num  int
 	Time time.Time
 	Err  error // Error from tail
 }
@@ -79,8 +79,8 @@ type Tail struct {
 	Lines    chan *Line
 	Config
 
-	file   *os.File
-	reader *bufio.Reader
+	file    *os.File
+	reader  *bufio.Reader
 	lineNum int
 
 	watcher watch.FileWatcher
