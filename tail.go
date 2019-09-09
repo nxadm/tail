@@ -27,13 +27,14 @@ var (
 
 type Line struct {
 	Text string
+	Num int
 	Time time.Time
 	Err  error // Error from tail
 }
 
 // NewLine returns a Line with present time.
-func NewLine(text string) *Line {
-	return &Line{text, time.Now(), nil}
+func NewLine(text string, lineNum int) *Line {
+	return &Line{text, lineNum, time.Now(), nil}
 }
 
 // SeekInfo represents arguments to `io.Seek`
@@ -80,6 +81,7 @@ type Tail struct {
 
 	file   *os.File
 	reader *bufio.Reader
+	lineNum int
 
 	watcher watch.FileWatcher
 	changes *watch.FileChanges
@@ -186,6 +188,7 @@ func (tail *Tail) closeFile() {
 
 func (tail *Tail) reopen() error {
 	tail.closeFile()
+	tail.lineNum = 0
 	for {
 		var err error
 		tail.file, err = OpenFile(tail.Filename)
@@ -270,7 +273,7 @@ func (tail *Tail) tailFileSync() {
 				// file when rate limit is reached.
 				msg := ("Too much log activity; waiting a second " +
 					"before resuming tailing")
-				tail.Lines <- &Line{msg, time.Now(), errors.New(msg)}
+				tail.Lines <- &Line{msg, tail.lineNum, time.Now(), errors.New(msg)}
 				select {
 				case <-time.After(time.Second):
 				case <-tail.Dying():
@@ -407,7 +410,8 @@ func (tail *Tail) sendLine(line string) bool {
 	}
 
 	for _, line := range lines {
-		tail.Lines <- &Line{line, now, nil}
+		tail.lineNum++
+		tail.Lines <- &Line{line, tail.lineNum, now, nil}
 	}
 
 	if tail.Config.RateLimiter != nil {
