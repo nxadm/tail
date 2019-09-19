@@ -137,7 +137,7 @@ func TailFile(filename string, config Config) (*Tail, error) {
 	return t, nil
 }
 
-// Return the file's current position, like stdio's ftell().
+// Tell returns the file's current position, like stdio's ftell().
 // But this value is not very accurate.
 // One line from the chan(tail.Lines) may have been read,
 // so it may have lost one line.
@@ -355,10 +355,9 @@ func (tail *Tail) waitForChanges() error {
 			tail.Logger.Printf("Successfully reopened %s", tail.Filename)
 			tail.openReader()
 			return nil
-		} else {
-			tail.Logger.Printf("Stopping tail as file no longer exists: %s", tail.Filename)
-			return ErrStop
 		}
+		tail.Logger.Printf("Stopping tail as file no longer exists: %s", tail.Filename)
+		return ErrStop
 	case <-tail.changes.Truncated:
 		// Always reopen truncated files (Follow is true)
 		tail.Logger.Printf("Re-opening truncated file %s ...", tail.Filename)
@@ -371,7 +370,6 @@ func (tail *Tail) waitForChanges() error {
 	case <-tail.Dying():
 		return ErrStop
 	}
-	panic("unreachable")
 }
 
 func (tail *Tail) openReader() {
@@ -412,7 +410,11 @@ func (tail *Tail) sendLine(line string) bool {
 
 	for _, line := range lines {
 		tail.lineNum++
-		tail.Lines <- &Line{line, tail.lineNum, now, nil}
+		select {
+		case tail.Lines <- &Line{line, tail.lineNum, now, nil}:
+		case <-tail.Dying():
+			return true
+		}
 	}
 
 	if tail.Config.RateLimiter != nil {
