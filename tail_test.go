@@ -97,6 +97,15 @@ func TestStop(t *testing.T) {
 	tail.Cleanup()
 }
 
+func TestStopNonEmptyFile(t *testing.T) {
+	tailTest := NewTailTest("maxlinesize", t)
+	tailTest.CreateFile("test.txt", "hello\nthere\nworld\n")
+	tail := tailTest.StartTail("test.txt", Config{})
+	tail.Stop()
+	tail.Cleanup()
+	// success here is if it doesn't panic.
+}
+
 func TestStopAtEOF(t *testing.T) {
 	tailTest := NewTailTest("maxlinesize", t)
 	tailTest.CreateFile("test.txt", "hello\nthere\nworld\n")
@@ -330,7 +339,7 @@ func TestTell(t *testing.T) {
 		Follow:   false,
 		Location: &SeekInfo{0, io.SeekStart}}
 	tail := tailTest.StartTail("test.txt", config)
-	// read noe line
+	// read one line
 	line := <-tail.Lines
 	if line.Num != 1 {
 		tailTest.Errorf("expected line to have number 1 but got %d", line.Num)
@@ -339,8 +348,7 @@ func TestTell(t *testing.T) {
 	if err != nil {
 		tailTest.Errorf("Tell return error: %s", err.Error())
 	}
-	tail.Done()
-	// tail.close()
+	tail.Stop()
 
 	config = Config{
 		Follow:   false,
@@ -359,7 +367,7 @@ func TestTell(t *testing.T) {
 		break
 	}
 	tailTest.RemoveFile("test.txt")
-	tail.Done()
+	tail.Stop()
 	tail.Cleanup()
 }
 
