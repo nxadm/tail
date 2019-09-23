@@ -1,3 +1,9 @@
+# Version v1.3.1
+
+* Incorporated PR 7: "Fix deadlock when stopping on non-empty file/buffer", 
+fixes upstream issue 93.
+
+
 # Version v1.3.0
 
 * Incorporated changes of unmerged upstream PR 149 by mezzi: "added line num
