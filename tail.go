@@ -26,15 +26,16 @@ var (
 )
 
 type Line struct {
-	Text string
-	Num  int
-	Time time.Time
-	Err  error // Error from tail
+	Text     string
+	Num      int
+	SeekInfo SeekInfo
+	Time     time.Time
+	Err      error // Error from tail
 }
 
 // NewLine returns a Line with present time.
 func NewLine(text string, lineNum int) *Line {
-	return &Line{text, lineNum, time.Now(), nil}
+	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil}
 }
 
 // SeekInfo represents arguments to `io.Seek`
@@ -272,7 +273,8 @@ func (tail *Tail) tailFileSync() {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
 				msg := ("Too much log activity; waiting a second before resuming tailing")
-				tail.Lines <- &Line{msg, tail.lineNum, time.Now(), errors.New(msg)}
+				offset, _ := tail.Tell()
+				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg)}
 				select {
 				case <-time.After(time.Second):
 				case <-tail.Dying():
@@ -410,8 +412,9 @@ func (tail *Tail) sendLine(line string) bool {
 
 	for _, line := range lines {
 		tail.lineNum++
+		offset, _ := tail.Tell()
 		select {
-		case tail.Lines <- &Line{line, tail.lineNum, now, nil}:
+		case tail.Lines <- &Line{line, tail.lineNum, SeekInfo{Offset: offset}, now, nil}:
 		case <-tail.Dying():
 			return true
 		}
