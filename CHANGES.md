@@ -1,3 +1,7 @@
+# Version v1.4.1
+
+* Incorporated PR 162 by by Mohammed902: "Simplify non-Windows build tag".
+
 # Version v1.4.0
 
 * Incorporated PR 9 by mschneider82: "Added seekinfo to Tail".
