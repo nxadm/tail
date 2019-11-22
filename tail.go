@@ -19,23 +19,42 @@ import (
 	"github.com/nxadm/tail/ratelimiter"
 )
 
-
-var errStop = errors.New("tail should now stop")
-var errStopAtEOF = errors.New("tail: stop at eof")
-
 var (
+	errStop      = errors.New("tail should now stop")
+	errStopAtEOF = errors.New("tail: stop at eof")
+
 	// DefaultLogger is used when Config.Logger == nil
 	DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
 	// DiscardingLogger can be used to disable logging output
 	DiscardingLogger = log.New(ioutil.Discard, "", 0)
 )
 
+// Config is used to specify how a file must be tailed.
+type Config struct {
+	Location  *SeekInfo // Seek to this location before tailing
+	ReOpen    bool      // Reopen recreated files (tail -F)
+	MustExist bool      // Fail early if the file does not exist
+	Poll      bool      // Poll for file changes instead of using inotify
+	Pipe      bool      // Is a named pipe (mkfifo)
+
+	// Generic IO
+	Follow      bool // Continue looking for new lines (tail -f)
+	MaxLineSize int  // If non-zero, split longer lines into multiple lines
+
+	// Logger, when nil, is set to tail.DefaultLogger
+	// To disable logging: set field to tail.DiscardingLogger
+	Logger logger
+
+	rateLimiter *ratelimiter.LeakyBucket
+}
+
+// Line contains the information about the tailed line.
 type Line struct {
-	Text     string
-	Num      int
-	SeekInfo SeekInfo
-	Time     time.Time
-	Err      error // Error from tail
+	Text     string    // Content
+	Num      int       // Line number
+	SeekInfo SeekInfo  // Seekinfo information
+	Time     time.Time // Read time of the line
+	Err      error     // Error from tail
 }
 
 //// NewLine returns a Line with present time.
@@ -45,8 +64,27 @@ type Line struct {
 
 // SeekInfo represents arguments to `io.Seek`
 type SeekInfo struct {
-	Offset int64
-	Whence int // io.Seek*
+	Offset int64 // Offset from the start of the file
+	Whence int   // io.Seek*
+}
+
+// Tail contains all the information about the will be tailed.
+type Tail struct {
+	Filename string     // Filename of the file
+	Lines    chan *Line // Channel of Line struct with information of each line
+	Config              // Tail configuration
+
+	file    *os.File
+	reader  *bufio.Reader
+	lineNum int
+
+	watcher fileWatcher
+	changes *fileChanges
+
+	context.Context
+	context.CancelFunc
+
+	lock sync.Mutex
 }
 
 type logger interface {
@@ -60,45 +98,6 @@ type logger interface {
 	Printf(format string, v ...interface{})
 	Println(v ...interface{})
 }
-
-// Config is used to specify how a file must be tailed.
-type Config struct {
-	// File-specifc
-	Location    *SeekInfo // Seek to this location before tailing
-	ReOpen      bool      // Reopen recreated files (tail -F)
-	MustExist   bool      // Fail early if the file does not exist
-	Poll        bool      // Poll for file changes instead of using inotify
-	Pipe        bool      // Is a named pipe (mkfifo)
-	RateLimiter *ratelimiter.LeakyBucket
-
-	// Generic IO
-	Follow      bool // Continue looking for new lines (tail -f)
-	MaxLineSize int  // If non-zero, split longer lines into multiple lines
-
-	// Logger, when nil, is set to tail.DefaultLogger
-	// To disable logging: set field to tail.DiscardingLogger
-	Logger logger
-}
-
-type Tail struct {
-	Filename string
-	Lines    chan *Line
-	Config
-
-	file    *os.File
-	reader  *bufio.Reader
-	lineNum int
-
-	watcher fileWatcher
-	changes *fileChanges
-
-	context.Context
-	context.CancelFunc
-
-	lk sync.Mutex
-}
-
-
 
 // TailFile begins tailing the file. Output stream is made available
 // via the `Tail.Lines` channel. To handle errors during tailing,
@@ -137,15 +136,14 @@ func TailFile(filename string, config Config) (*Tail, error) {
 		}
 	}
 
-	go t.tailFileSync()
+	go t.tailFileSync(ctx)
 
 	return t, nil
 }
 
 // Tell returns the file's current position, like stdio's ftell().
-// But this value is not very accurate.
-// One line from the chan(tail.Lines) may have been read,
-// so it may have lost one line.
+// Beware that this value may not be accurate: one line from the
+// chan(tail.Lines) may have been read, so it may have lost one line.
 func (tail *Tail) Tell() (offset int64, err error) {
 	if tail.file == nil {
 		return
@@ -155,8 +153,8 @@ func (tail *Tail) Tell() (offset int64, err error) {
 		return
 	}
 
-	tail.lk.Lock()
-	defer tail.lk.Unlock()
+	tail.lock.Lock()
+	defer tail.lock.Unlock()
 	if tail.reader == nil {
 		return
 	}
@@ -168,8 +166,7 @@ func (tail *Tail) Tell() (offset int64, err error) {
 // Stop stops the tailing activity.
 func (tail *Tail) Stop() error {
 	tail.CancelFunc()
-	<-tail.Context.Done()
-	return nil
+	return errStop
 }
 
 // StopAtEOF stops tailing as soon as the end of the file is reached.
@@ -177,7 +174,6 @@ func (tail *Tail) StopAtEOF() error {
 	tail.CancelFunc()
 	return errStopAtEOF
 }
-
 
 func (tail *Tail) close() {
 	close(tail.Lines)
@@ -213,9 +209,9 @@ func (tail *Tail) reopen() error {
 }
 
 func (tail *Tail) readLine() (string, error) {
-	tail.lk.Lock()
+	tail.lock.Lock()
 	line, err := tail.reader.ReadString('\n')
-	tail.lk.Unlock()
+	tail.lock.Unlock()
 	if err != nil {
 		// Note ReadString "returns the data read before the error" in
 		// case of an error, including EOF, so we return it as is. The
@@ -228,7 +224,7 @@ func (tail *Tail) readLine() (string, error) {
 	return line, err
 }
 
-func (tail *Tail) tailFileSync() {
+func (tail *Tail) tailFileSync(ctx context.Context) {
 	defer tail.Done()
 	defer tail.close()
 
@@ -306,13 +302,19 @@ func (tail *Tail) tailFileSync() {
 			// When EOF is reached, wait for more data to become
 			// available. Wait strategy is based on the `tail.watcher`
 			// implementation (inotify or polling).
-			err := tail.waitForChanges()
-			if err != nil {
-				if err != errStop {
-					tail.CancelFunc()
-					fmt.Errorf("%s", err)
-				}
+			select {
+			case <-ctx.Done():
+				// StopAtEOF called
 				return
+			default:
+				err := tail.waitForChanges()
+				if err != nil {
+					if err != errStop {
+						tail.CancelFunc()
+						fmt.Errorf("%s", err)
+					}
+					return
+				}
 			}
 		} else {
 			// non-EOF error
@@ -379,14 +381,14 @@ func (tail *Tail) waitForChanges() error {
 }
 
 func (tail *Tail) openReader() {
-	tail.lk.Lock()
+	tail.lock.Lock()
 	if tail.MaxLineSize > 0 {
 		// add 2 to account for newline characters
 		tail.reader = bufio.NewReaderSize(tail.file, tail.MaxLineSize+2)
 	} else {
 		tail.reader = bufio.NewReader(tail.file)
 	}
-	tail.lk.Unlock()
+	tail.lock.Unlock()
 }
 
 func (tail *Tail) seekEnd() error {
@@ -424,8 +426,8 @@ func (tail *Tail) sendLine(line string) bool {
 		}
 	}
 
-	if tail.Config.RateLimiter != nil {
-		ok := tail.Config.RateLimiter.Pour(uint16(len(lines)))
+	if tail.Config.rateLimiter != nil {
+		ok := tail.Config.rateLimiter.Pour(uint16(len(lines)))
 		if !ok {
 			tail.Logger.Printf("Leaky bucket full (%v); entering 1s cooloff period.",
 				tail.Filename)

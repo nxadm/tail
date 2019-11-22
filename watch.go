@@ -9,10 +9,10 @@ import (
 
 // fileWatcher monitors file-level events.
 type fileWatcher interface {
-	// BlockUntilExistsOLD blocks until the file comes into existence.
+	// blockUntilExists blocks until the file comes into existence.
 	blockUntilExists(ctx context.Context) error
 
-	// ChangeEventsOLD reports on changes to a file, be it modification,
+	// changeEvents reports on changes to a file, be it modification,
 	// deletion, renames or truncations. Returned fileChanges group of
 	// channels will be closed, thus become unusable, after a deletion
 	// or truncation event.

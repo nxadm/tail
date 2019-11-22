@@ -90,10 +90,6 @@ func TestStop(t *testing.T) {
 	if err != nil {
 		t.Error("MustExist:false is violated")
 	}
-	err = tail.Stop()
-	if err != nil {
-		t.Errorf("Should be stoped successfully, got: %s", err)
-	}
 	tail.Cleanup()
 }
 
@@ -309,7 +305,7 @@ func TestRateLimiting(t *testing.T) {
 	tailTest.CreateFile("test.txt", "hello\nworld\nagain\nextra\n")
 	config := Config{
 		Follow:      true,
-		RateLimiter: ratelimiter.NewLeakyBucket(2, time.Second)}
+		rateLimiter: ratelimiter.NewLeakyBucket(2, time.Second)}
 	leakybucketFull := "Too much log activity; waiting a second before resuming tailing"
 	tail := tailTest.StartTail("test.txt", config)
 
