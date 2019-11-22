@@ -5,8 +5,10 @@ package tail
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
+	"gopkg.in/tomb.v1"
 	"io"
 	"io/ioutil"
 	"log"
@@ -18,7 +20,6 @@ import (
 	"github.com/nxadm/tail/ratelimiter"
 	"github.com/nxadm/tail/util"
 	"github.com/nxadm/tail/watch"
-	"gopkg.in/tomb.v1"
 )
 
 var (
@@ -87,7 +88,8 @@ type Tail struct {
 	watcher watch.FileWatcher
 	changes *watch.FileChanges
 
-	tomb.Tomb // provides: Done, Kill, Dying
+	Ctx           context.Context
+	CtxCancelFunc context.CancelFunc
 
 	lk sync.Mutex
 }
@@ -108,10 +110,13 @@ func TailFile(filename string, config Config) (*Tail, error) {
 		util.Fatal("cannot set ReOpen without Follow.")
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	t := &Tail{
-		Filename: filename,
-		Lines:    make(chan *Line),
-		Config:   config,
+		Filename:      filename,
+		Lines:         make(chan *Line),
+		Config:        config,
+		Ctx:           ctx,
+		CtxCancelFunc: cancel,
 	}
 
 	// when Logger was not specified in config, use default logger
@@ -163,14 +168,14 @@ func (tail *Tail) Tell() (offset int64, err error) {
 
 // Stop stops the tailing activity.
 func (tail *Tail) Stop() error {
-	tail.Kill(nil)
-	return tail.Wait()
+	tail.CtxCancelFunc()
+	return tail.Ctx.Err()
 }
 
 // StopAtEOF stops tailing as soon as the end of the file is reached.
 func (tail *Tail) StopAtEOF() error {
-	tail.Kill(errStopAtEOF)
-	return tail.Wait()
+	tail.CtxCancelFunc()
+	return errStopAtEOF
 }
 
 var errStopAtEOF = errors.New("tail: stop at eof")
@@ -228,7 +233,7 @@ func (tail *Tail) readLine() (string, error) {
 }
 
 func (tail *Tail) tailFileSync() {
-	defer tail.Done()
+	defer tail.Ctx.Done()
 	defer tail.close()
 
 	if !tail.MustExist {
