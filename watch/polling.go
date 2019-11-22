@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/nxadm/tail/util"
-	"gopkg.in/tomb.v1"
 )
 
 // PollingFileWatcher polls the file for changes.
@@ -37,7 +36,7 @@ func (fw *PollingFileWatcher) BlockUntilExists(ctx context.Context) error {
 		case <-time.After(POLL_DURATION):
 			continue
 		case <-ctx.Done():
-			return tomb.ErrDying
+			return nil
 		}
 	}
 	panic("unreachable")
