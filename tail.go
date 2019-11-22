@@ -17,12 +17,17 @@ import (
 	"time"
 
 	"github.com/nxadm/tail/ratelimiter"
-	"github.com/nxadm/tail/util"
-	"github.com/nxadm/tail/watch"
 )
 
+
+var errStop = errors.New("tail should now stop")
+var errStopAtEOF = errors.New("tail: stop at eof")
+
 var (
-	ErrStop = errors.New("tail should now stop")
+	// DefaultLogger is used when Config.Logger == nil
+	DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
+	// DiscardingLogger can be used to disable logging output
+	DiscardingLogger = log.New(ioutil.Discard, "", 0)
 )
 
 type Line struct {
@@ -33,10 +38,10 @@ type Line struct {
 	Err      error // Error from tail
 }
 
-// NewLine returns a Line with present time.
-func NewLine(text string, lineNum int) *Line {
-	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil}
-}
+//// NewLine returns a Line with present time.
+//func NewLine(text string, lineNum int) *Line {
+//	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil}
+//}
 
 // SeekInfo represents arguments to `io.Seek`
 type SeekInfo struct {
@@ -84,8 +89,8 @@ type Tail struct {
 	reader  *bufio.Reader
 	lineNum int
 
-	watcher watch.FileWatcher
-	changes *watch.FileChanges
+	watcher fileWatcher
+	changes *fileChanges
 
 	context.Context
 	context.CancelFunc
@@ -93,12 +98,7 @@ type Tail struct {
 	lk sync.Mutex
 }
 
-var (
-	// DefaultLogger is used when Config.Logger == nil
-	DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
-	// DiscardingLogger can be used to disable logging output
-	DiscardingLogger = log.New(ioutil.Discard, "", 0)
-)
+
 
 // TailFile begins tailing the file. Output stream is made available
 // via the `Tail.Lines` channel. To handle errors during tailing,
@@ -106,7 +106,7 @@ var (
 // `Lines` channel.
 func TailFile(filename string, config Config) (*Tail, error) {
 	if config.ReOpen && !config.Follow {
-		util.Fatal("cannot set ReOpen without Follow.")
+		fatal("cannot set ReOpen without Follow.")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,20 +118,20 @@ func TailFile(filename string, config Config) (*Tail, error) {
 	t.Context = ctx
 	t.CancelFunc = cancel
 
-	// when Logger was not specified in config, use default logger
+	// when Logger was not specified in config, use default trackerLogger
 	if t.Logger == nil {
 		t.Logger = DefaultLogger
 	}
 
 	if t.Poll {
-		t.watcher = watch.NewPollingFileWatcher(filename)
+		t.watcher = newPollingFileWatcher(filename)
 	} else {
-		t.watcher = watch.NewInotifyFileWatcher(filename)
+		t.watcher = newInotifyFileWatcher(filename)
 	}
 
 	if t.MustExist {
 		var err error
-		t.file, err = OpenFile(t.Filename)
+		t.file, err = openFile(t.Filename)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +178,6 @@ func (tail *Tail) StopAtEOF() error {
 	return errStopAtEOF
 }
 
-var errStopAtEOF = errors.New("tail: stop at eof")
 
 func (tail *Tail) close() {
 	close(tail.Lines)
@@ -197,11 +196,11 @@ func (tail *Tail) reopen() error {
 	tail.lineNum = 0
 	for {
 		var err error
-		tail.file, err = OpenFile(tail.Filename)
+		tail.file, err = openFile(tail.Filename)
 		if err != nil {
 			if os.IsNotExist(err) {
 				tail.Logger.Printf("Waiting for %s to appear...", tail.Filename)
-				if err := tail.watcher.BlockUntilExists(tail.Context); err != nil {
+				if err := tail.watcher.blockUntilExists(tail.Context); err != nil {
 					return fmt.Errorf("Failed to detect creation of %s: %s", tail.Filename, err)
 				}
 				continue
@@ -309,7 +308,7 @@ func (tail *Tail) tailFileSync() {
 			// implementation (inotify or polling).
 			err := tail.waitForChanges()
 			if err != nil {
-				if err != ErrStop {
+				if err != errStop {
 					tail.CancelFunc()
 					fmt.Errorf("%s", err)
 				}
@@ -342,16 +341,16 @@ func (tail *Tail) waitForChanges() error {
 		if err != nil {
 			return err
 		}
-		tail.changes, err = tail.watcher.ChangeEvents(tail.Context, pos)
+		tail.changes, err = tail.watcher.changeEvents(tail.Context, pos)
 		if err != nil {
 			return err
 		}
 	}
 
 	select {
-	case <-tail.changes.Modified:
+	case <-tail.changes.modified:
 		return nil
-	case <-tail.changes.Deleted:
+	case <-tail.changes.deleted:
 		tail.changes = nil
 		if tail.ReOpen {
 			// XXX: we must not log from a library.
@@ -364,7 +363,7 @@ func (tail *Tail) waitForChanges() error {
 			return nil
 		}
 		tail.Logger.Printf("Stopping tail as file no longer exists: %s", tail.Filename)
-		return ErrStop
+		return errStop
 	case <-tail.changes.Truncated:
 		// Always reopen truncated files (Follow is true)
 		tail.Logger.Printf("Re-opening truncated file %s ...", tail.Filename)
@@ -375,7 +374,7 @@ func (tail *Tail) waitForChanges() error {
 		tail.openReader()
 		return nil
 	case <-tail.Done():
-		return ErrStop
+		return errStop
 	}
 }
 
@@ -412,7 +411,7 @@ func (tail *Tail) sendLine(line string) bool {
 
 	// Split longer lines
 	if tail.MaxLineSize > 0 && len(line) > tail.MaxLineSize {
-		lines = util.PartitionString(line, tail.MaxLineSize)
+		lines = partitionString(line, tail.MaxLineSize)
 	}
 
 	for _, line := range lines {
@@ -437,9 +436,9 @@ func (tail *Tail) sendLine(line string) bool {
 	return true
 }
 
-// Cleanup removes inotify watches added by the tail package. This function is
+// cleanup removes inotify watches added by the tail package. This function is
 // meant to be invoked from a process's exit handler. Linux kernel may not
 // automatically remove inotify watches after the process exits.
 func (tail *Tail) Cleanup() {
-	watch.Cleanup(tail.Filename)
+	cleanup(tail.Filename)
 }

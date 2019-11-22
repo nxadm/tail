@@ -1,6 +1,6 @@
 // +build windows
 
-package winfile
+package tail
 
 import (
 	"os"
@@ -12,7 +12,7 @@ import (
 //https://codereview.appspot.com/8203043/
 
 // https://github.com/jnwhiteh/golang/blob/master/src/pkg/syscall/syscall_windows.go#L218
-func Open(path string, mode int, perm uint32) (fd syscall.Handle, err error) {
+func open(path string, mode int, perm uint32) (fd syscall.Handle, err error) {
 	if len(path) == 0 {
 		return syscall.InvalidHandle, syscall.ERROR_FILE_NOT_FOUND
 	}
@@ -67,8 +67,8 @@ func makeInheritSa() *syscall.SecurityAttributes {
 }
 
 // https://github.com/jnwhiteh/golang/blob/master/src/pkg/os/file_windows.go#L133
-func OpenFile(name string, flag int, perm os.FileMode) (file *os.File, err error) {
-	r, e := Open(name, flag|syscall.O_CLOEXEC, syscallMode(perm))
+func openFile(name string, flag int, perm os.FileMode) (file *os.File, err error) {
+	r, e := open(name, flag|syscall.O_CLOEXEC, syscallMode(perm))
 	if e != nil {
 		return nil, e
 	}

@@ -1,7 +1,7 @@
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-package watch
+package tail
 
 import (
 	"context"
@@ -9,36 +9,35 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nxadm/tail/util"
 	"github.com/fsnotify/fsnotify"
 )
 
-// InotifyFileWatcher uses inotify to monitor file changes.
-type InotifyFileWatcher struct {
-	Filename string
-	Size     int64
+// inotifyFileWatcher uses inotify to monitor file changes.
+type inotifyFileWatcher struct {
+	filename string
+	size     int64
 }
 
-func NewInotifyFileWatcher(filename string) *InotifyFileWatcher {
-	fw := &InotifyFileWatcher{filepath.Clean(filename), 0}
+func newInotifyFileWatcher(filename string) *inotifyFileWatcher {
+	fw := &inotifyFileWatcher{filepath.Clean(filename), 0}
 	return fw
 }
 
-func (fw *InotifyFileWatcher) BlockUntilExists(ctx context.Context) error {
-	err := WatchCreate(fw.Filename)
+func (fw *inotifyFileWatcher) blockUntilExists(ctx context.Context) error {
+	err := watchCreate(fw.filename)
 	if err != nil {
 		return err
 	}
-	defer RemoveWatchCreate(fw.Filename)
+	defer removeWatchCreate(fw.filename)
 
 	// Do a real check now as the file might have been created before
 	// calling `WatchFlags` above.
-	if _, err = os.Stat(fw.Filename); !os.IsNotExist(err) {
+	if _, err = os.Stat(fw.filename); !os.IsNotExist(err) {
 		// file exists, or stat returned an error.
 		return err
 	}
 
-	events := Events(fw.Filename)
+	events := events(fw.filename)
 
 	for {
 		select {
@@ -50,7 +49,7 @@ func (fw *InotifyFileWatcher) BlockUntilExists(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			fwFilename, err := filepath.Abs(fw.Filename)
+			fwFilename, err := filepath.Abs(fw.filename)
 			if err != nil {
 				return err
 			}
@@ -64,22 +63,21 @@ func (fw *InotifyFileWatcher) BlockUntilExists(ctx context.Context) error {
 	panic("unreachable")
 }
 
-
-func (fw *InotifyFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*FileChanges, error) {
-	err := Watch(fw.Filename)
+func (fw *inotifyFileWatcher) changeEvents(ctx context.Context, pos int64) (*fileChanges, error) {
+	err := startWatch(fw.filename)
 	if err != nil {
 		return nil, err
 	}
 
-	changes := NewFileChanges()
-	fw.Size = pos
+	changes := newFileChanges()
+	fw.size = pos
 
 	go func() {
 
-		events := Events(fw.Filename)
+		events := events(fw.filename)
 
 		for {
-			prevSize := fw.Size
+			prevSize := fw.size
 
 			var evt fsnotify.Event
 			var ok bool
@@ -87,11 +85,11 @@ func (fw *InotifyFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*Fil
 			select {
 			case evt, ok = <-events:
 				if !ok {
-					RemoveWatch(fw.Filename)
+					removeWatch(fw.filename)
 					return
 				}
 			case <-ctx.Done():
-				RemoveWatch(fw.Filename)
+				removeWatch(fw.filename)
 				return
 			}
 
@@ -100,8 +98,8 @@ func (fw *InotifyFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*Fil
 				fallthrough
 
 			case evt.Op&fsnotify.Rename == fsnotify.Rename:
-				RemoveWatch(fw.Filename)
-				changes.NotifyDeleted()
+				removeWatch(fw.filename)
+				changes.notifyDeleted()
 				return
 
 			//With an open fd, unlink(fd) - inotify returns IN_ATTRIB (==fsnotify.Chmod)
@@ -109,24 +107,24 @@ func (fw *InotifyFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*Fil
 				fallthrough
 
 			case evt.Op&fsnotify.Write == fsnotify.Write:
-				fi, err := os.Stat(fw.Filename)
+				fi, err := os.Stat(fw.filename)
 				if err != nil {
 					if os.IsNotExist(err) {
-						RemoveWatch(fw.Filename)
-						changes.NotifyDeleted()
+						removeWatch(fw.filename)
+						changes.notifyDeleted()
 						return
 					}
 					// XXX: report this error back to the user
-					util.Fatal("Failed to stat file %v: %v", fw.Filename, err)
+					fatal("Failed to stat file %v: %v", fw.filename, err)
 				}
-				fw.Size = fi.Size()
+				fw.size = fi.Size()
 
-				if prevSize > 0 && prevSize > fw.Size {
-					changes.NotifyTruncated()
+				if prevSize > 0 && prevSize > fw.size {
+					changes.notifyTruncated()
 				} else {
-					changes.NotifyModified()
+					changes.notifyModified()
 				}
-				prevSize = fw.Size
+				prevSize = fw.size
 			}
 		}
 	}()

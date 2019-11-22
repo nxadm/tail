@@ -1,33 +1,31 @@
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-package watch
+package tail
 
 import (
 	"context"
 	"os"
 	"runtime"
 	"time"
-
-	"github.com/nxadm/tail/util"
 )
 
-// PollingFileWatcher polls the file for changes.
-type PollingFileWatcher struct {
-	Filename string
-	Size     int64
+// pollingFileWatcher polls the file for changes.
+type pollingFileWatcher struct {
+	filename string
+	size     int64
 }
 
-func NewPollingFileWatcher(filename string) *PollingFileWatcher {
-	fw := &PollingFileWatcher{filename, 0}
+func newPollingFileWatcher(filename string) *pollingFileWatcher {
+	fw := &pollingFileWatcher{filename, 0}
 	return fw
 }
 
 var POLL_DURATION time.Duration
 
-func (fw *PollingFileWatcher) BlockUntilExists(ctx context.Context) error {
+func (fw *pollingFileWatcher) blockUntilExists(ctx context.Context) error {
 	for {
-		if _, err := os.Stat(fw.Filename); err == nil {
+		if _, err := os.Stat(fw.filename); err == nil {
 			return nil
 		} else if !os.IsNotExist(err) {
 			return err
@@ -42,22 +40,22 @@ func (fw *PollingFileWatcher) BlockUntilExists(ctx context.Context) error {
 	panic("unreachable")
 }
 
-func (fw *PollingFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*FileChanges, error) {
-	origFi, err := os.Stat(fw.Filename)
+func (fw *pollingFileWatcher) changeEvents(ctx context.Context, pos int64) (*fileChanges, error) {
+	origFi, err := os.Stat(fw.filename)
 	if err != nil {
 		return nil, err
 	}
 
-	changes := NewFileChanges()
+	changes := newFileChanges()
 	var prevModTime time.Time
 
 	// XXX: use tomb.Tomb to cleanly manage these goroutines. replace
 	// the fatal (below) with tomb's Kill.
 
-	fw.Size = pos
+	fw.size = pos
 
 	go func() {
-		prevSize := fw.Size
+		prevSize := fw.size
 		for {
 			select {
 			case <-ctx.Done():
@@ -66,46 +64,46 @@ func (fw *PollingFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*Fil
 			}
 
 			time.Sleep(POLL_DURATION)
-			fi, err := os.Stat(fw.Filename)
+			fi, err := os.Stat(fw.filename)
 			if err != nil {
 				// Windows cannot delete a file if a handle is still open (tail keeps one open)
 				// so it gives access denied to anything trying to read it until all handles are released.
 				if os.IsNotExist(err) || (runtime.GOOS == "windows" && os.IsPermission(err)) {
 					// File does not exist (has been deleted).
-					changes.NotifyDeleted()
+					changes.notifyDeleted()
 					return
 				}
 
 				// XXX: report this error back to the user
-				util.Fatal("Failed to stat file %v: %v", fw.Filename, err)
+				fatal("Failed to stat file %v: %v", fw.filename, err)
 			}
 
 			// File got moved/renamed?
 			if !os.SameFile(origFi, fi) {
-				changes.NotifyDeleted()
+				changes.notifyDeleted()
 				return
 			}
 
 			// File got truncated?
-			fw.Size = fi.Size()
-			if prevSize > 0 && prevSize > fw.Size {
-				changes.NotifyTruncated()
-				prevSize = fw.Size
+			fw.size = fi.Size()
+			if prevSize > 0 && prevSize > fw.size {
+				changes.notifyTruncated()
+				prevSize = fw.size
 				continue
 			}
 			// File got bigger?
-			if prevSize > 0 && prevSize < fw.Size {
-				changes.NotifyModified()
-				prevSize = fw.Size
+			if prevSize > 0 && prevSize < fw.size {
+				changes.notifyModified()
+				prevSize = fw.size
 				continue
 			}
-			prevSize = fw.Size
+			prevSize = fw.size
 
 			// File was appended to (changed)?
 			modTime := fi.ModTime()
 			if modTime != prevModTime {
 				prevModTime = modTime
-				changes.NotifyModified()
+				changes.notifyModified()
 			}
 		}
 	}()
