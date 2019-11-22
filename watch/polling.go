@@ -4,6 +4,7 @@
 package watch
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"time"
@@ -25,7 +26,7 @@ func NewPollingFileWatcher(filename string) *PollingFileWatcher {
 
 var POLL_DURATION time.Duration
 
-func (fw *PollingFileWatcher) BlockUntilExists(t *tomb.Tomb) error {
+func (fw *PollingFileWatcher) BlockUntilExists(ctx context.Context) error {
 	for {
 		if _, err := os.Stat(fw.Filename); err == nil {
 			return nil
@@ -35,14 +36,14 @@ func (fw *PollingFileWatcher) BlockUntilExists(t *tomb.Tomb) error {
 		select {
 		case <-time.After(POLL_DURATION):
 			continue
-		case <-t.Dying():
+		case <-ctx.Done():
 			return tomb.ErrDying
 		}
 	}
 	panic("unreachable")
 }
 
-func (fw *PollingFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChanges, error) {
+func (fw *PollingFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*FileChanges, error) {
 	origFi, err := os.Stat(fw.Filename)
 	if err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (fw *PollingFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChange
 		prevSize := fw.Size
 		for {
 			select {
-			case <-t.Dying():
+			case <-ctx.Done():
 				return
 			default:
 			}

@@ -3,18 +3,20 @@
 
 package watch
 
-import "gopkg.in/tomb.v1"
+import (
+	"context"
+)
 
 // FileWatcher monitors file-level events.
 type FileWatcher interface {
-	// BlockUntilExists blocks until the file comes into existence.
-	BlockUntilExists(*tomb.Tomb) error
+	// BlockUntilExistsOLD blocks until the file comes into existence.
+	BlockUntilExists(ctx context.Context) error
 
-	// ChangeEvents reports on changes to a file, be it modification,
+	// ChangeEventsOLD reports on changes to a file, be it modification,
 	// deletion, renames or truncations. Returned FileChanges group of
 	// channels will be closed, thus become unusable, after a deletion
 	// or truncation event.
-	// In order to properly report truncations, ChangeEvents requires
+	// In order to properly report truncations, ChangeEventsOLD requires
 	// the caller to pass their current offset in the file.
-	ChangeEvents(*tomb.Tomb, int64) (*FileChanges, error)
+	ChangeEvents(ctx context.Context, pos int64) (*FileChanges, error)
 }

@@ -91,8 +91,9 @@ func TestStop(t *testing.T) {
 	if err != nil {
 		t.Error("MustExist:false is violated")
 	}
-	if tail.Stop() != nil {
-		t.Error("Should be stoped successfully")
+	err = tail.Stop()
+	if err != nil {
+		t.Errorf("Should be stoped successfully, got: %s", err)
 	}
 	tail.Cleanup()
 }

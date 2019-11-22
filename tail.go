@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gopkg.in/tomb.v1"
 	"io"
 	"io/ioutil"
 	"log"
@@ -88,8 +87,8 @@ type Tail struct {
 	watcher watch.FileWatcher
 	changes *watch.FileChanges
 
-	Ctx           context.Context
-	CtxCancelFunc context.CancelFunc
+	context.Context
+	context.CancelFunc
 
 	lk sync.Mutex
 }
@@ -112,12 +111,12 @@ func TailFile(filename string, config Config) (*Tail, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t := &Tail{
-		Filename:      filename,
-		Lines:         make(chan *Line),
-		Config:        config,
-		Ctx:           ctx,
-		CtxCancelFunc: cancel,
+		Filename: filename,
+		Lines:    make(chan *Line),
+		Config:   config,
 	}
+	t.Context = ctx
+	t.CancelFunc = cancel
 
 	// when Logger was not specified in config, use default logger
 	if t.Logger == nil {
@@ -168,13 +167,14 @@ func (tail *Tail) Tell() (offset int64, err error) {
 
 // Stop stops the tailing activity.
 func (tail *Tail) Stop() error {
-	tail.CtxCancelFunc()
-	return tail.Ctx.Err()
+	tail.CancelFunc()
+	<-tail.Context.Done()
+	return nil
 }
 
 // StopAtEOF stops tailing as soon as the end of the file is reached.
 func (tail *Tail) StopAtEOF() error {
-	tail.CtxCancelFunc()
+	tail.CancelFunc()
 	return errStopAtEOF
 }
 
@@ -201,10 +201,7 @@ func (tail *Tail) reopen() error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				tail.Logger.Printf("Waiting for %s to appear...", tail.Filename)
-				if err := tail.watcher.BlockUntilExists(&tail.Tomb); err != nil {
-					if err == tomb.ErrDying {
-						return err
-					}
+				if err := tail.watcher.BlockUntilExists(tail.Context); err != nil {
 					return fmt.Errorf("Failed to detect creation of %s: %s", tail.Filename, err)
 				}
 				continue
@@ -233,16 +230,13 @@ func (tail *Tail) readLine() (string, error) {
 }
 
 func (tail *Tail) tailFileSync() {
-	defer tail.Ctx.Done()
+	defer tail.Done()
 	defer tail.close()
 
 	if !tail.MustExist {
 		// deferred first open.
 		err := tail.reopen()
 		if err != nil {
-			if err != tomb.ErrDying {
-				tail.Kill(err)
-			}
 			return
 		}
 	}
@@ -251,7 +245,8 @@ func (tail *Tail) tailFileSync() {
 	if tail.Location != nil {
 		_, err := tail.file.Seek(tail.Location.Offset, tail.Location.Whence)
 		if err != nil {
-			tail.Killf("Seek error on %s: %s", tail.Filename, err)
+			tail.CancelFunc()
+			fmt.Errorf("Seek error on %s: %s", tail.Filename, err)
 			return
 		}
 	}
@@ -264,7 +259,8 @@ func (tail *Tail) tailFileSync() {
 		if !tail.Pipe {
 			// grab the position in case we need to back up in the event of a half-line
 			if _, err := tail.Tell(); err != nil {
-				tail.Kill(err)
+				tail.CancelFunc()
+				fmt.Errorf("%s", err)
 				return
 			}
 		}
@@ -282,11 +278,12 @@ func (tail *Tail) tailFileSync() {
 				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg)}
 				select {
 				case <-time.After(time.Second):
-				case <-tail.Dying():
+				case <-tail.Done():
 					return
 				}
 				if err := tail.seekEnd(); err != nil {
-					tail.Kill(err)
+					tail.CancelFunc()
+					fmt.Errorf("%s", err)
 					return
 				}
 			}
@@ -301,7 +298,8 @@ func (tail *Tail) tailFileSync() {
 			if tail.Follow && line != "" {
 				tail.sendLine(line)
 				if err := tail.seekEnd(); err != nil {
-					tail.Kill(err)
+					tail.CancelFunc()
+					fmt.Errorf("%s", err)
 					return
 				}
 			}
@@ -312,18 +310,20 @@ func (tail *Tail) tailFileSync() {
 			err := tail.waitForChanges()
 			if err != nil {
 				if err != ErrStop {
-					tail.Kill(err)
+					tail.CancelFunc()
+					fmt.Errorf("%s", err)
 				}
 				return
 			}
 		} else {
 			// non-EOF error
-			tail.Killf("Error reading %s: %s", tail.Filename, err)
+			tail.CancelFunc()
+			fmt.Errorf("Error reading %s: %s", tail.Filename, err)
 			return
 		}
 
 		select {
-		case <-tail.Dying():
+		case <-tail.Done():
 			if tail.Err() == errStopAtEOF {
 				continue
 			}
@@ -342,7 +342,7 @@ func (tail *Tail) waitForChanges() error {
 		if err != nil {
 			return err
 		}
-		tail.changes, err = tail.watcher.ChangeEvents(&tail.Tomb, pos)
+		tail.changes, err = tail.watcher.ChangeEvents(tail.Context, pos)
 		if err != nil {
 			return err
 		}
@@ -374,7 +374,7 @@ func (tail *Tail) waitForChanges() error {
 		tail.Logger.Printf("Successfully reopened truncated %s", tail.Filename)
 		tail.openReader()
 		return nil
-	case <-tail.Dying():
+	case <-tail.Done():
 		return ErrStop
 	}
 }
@@ -420,7 +420,7 @@ func (tail *Tail) sendLine(line string) bool {
 		offset, _ := tail.Tell()
 		select {
 		case tail.Lines <- &Line{line, tail.lineNum, SeekInfo{Offset: offset}, now, nil}:
-		case <-tail.Dying():
+		case <-tail.Done():
 			return true
 		}
 	}

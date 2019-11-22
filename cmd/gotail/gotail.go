@@ -59,5 +59,5 @@ func tailFile(filename string, config tail.Config, done chan bool) {
 	for line := range t.Lines {
 		fmt.Println(line.Text)
 	}
-	<-t.Ctx.Done()
+	<-t.Done()
 }

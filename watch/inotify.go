@@ -4,14 +4,13 @@
 package watch
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/nxadm/tail/util"
-
-    "github.com/fsnotify/fsnotify"
-	"gopkg.in/tomb.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 // InotifyFileWatcher uses inotify to monitor file changes.
@@ -25,7 +24,7 @@ func NewInotifyFileWatcher(filename string) *InotifyFileWatcher {
 	return fw
 }
 
-func (fw *InotifyFileWatcher) BlockUntilExists(t *tomb.Tomb) error {
+func (fw *InotifyFileWatcher) BlockUntilExists(ctx context.Context) error {
 	err := WatchCreate(fw.Filename)
 	if err != nil {
 		return err
@@ -58,14 +57,15 @@ func (fw *InotifyFileWatcher) BlockUntilExists(t *tomb.Tomb) error {
 			if evtName == fwFilename {
 				return nil
 			}
-		case <-t.Dying():
-			return tomb.ErrDying
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 	panic("unreachable")
 }
 
-func (fw *InotifyFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChanges, error) {
+
+func (fw *InotifyFileWatcher) ChangeEvents(ctx context.Context, pos int64) (*FileChanges, error) {
 	err := Watch(fw.Filename)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (fw *InotifyFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChange
 					RemoveWatch(fw.Filename)
 					return
 				}
-			case <-t.Dying():
+			case <-ctx.Done():
 				RemoveWatch(fw.Filename)
 				return
 			}
