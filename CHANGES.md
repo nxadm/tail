@@ -1,3 +1,7 @@
+# Version v1.4.2,1.4.3
+
+* Fix of checksum problem because of forced tag. No changes to the code.
+
 # Version v1.4.1
 
 * Incorporated PR 162 by by Mohammed902: "Simplify non-Windows build tag".
