@@ -3,6 +3,9 @@ language: go
 script:
   - go test -race -v ./...
 
+# For GOPATH build
+go_import_path: github.com/nxadm/tail
+
 go:
   # Keep the latest stable release at the top
   # Keep 'tip' just under
