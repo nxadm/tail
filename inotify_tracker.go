@@ -29,8 +29,8 @@ type watchInfo struct {
 	fname string
 }
 
-func (this *watchInfo) isCreate() bool {
-	return this.op == fsnotify.Create
+func (w *watchInfo) isCreate() bool {
+	return w.op == fsnotify.Create
 }
 
 var (
