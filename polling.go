@@ -37,7 +37,6 @@ func (fw *pollingFileWatcher) blockUntilExists(ctx context.Context) error {
 			return nil
 		}
 	}
-	panic("unreachable")
 }
 
 func (fw *pollingFileWatcher) changeEvents(ctx context.Context, pos int64) (*fileChanges, error) {

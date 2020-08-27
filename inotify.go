@@ -60,7 +60,6 @@ func (fw *inotifyFileWatcher) blockUntilExists(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	panic("unreachable")
 }
 
 func (fw *inotifyFileWatcher) changeEvents(ctx context.Context, pos int64) (*fileChanges, error) {
