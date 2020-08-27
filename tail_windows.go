@@ -7,5 +7,5 @@ import (
 )
 
 func openFile(name string) (file *os.File, err error) {
-	return winfile.OpenFile(name, os.O_RDONLY, 0)
+	return winOpenFile(name, os.O_RDONLY, 0)
 }

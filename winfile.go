@@ -67,7 +67,7 @@ func makeInheritSa() *syscall.SecurityAttributes {
 }
 
 // https://github.com/jnwhiteh/golang/blob/master/src/pkg/os/file_windows.go#L133
-func openFile(name string, flag int, perm os.FileMode) (file *os.File, err error) {
+func winOpenFile(name string, flag int, perm os.FileMode) (file *os.File, err error) {
 	r, e := open(name, flag|syscall.O_CLOEXEC, syscallMode(perm))
 	if e != nil {
 		return nil, e
