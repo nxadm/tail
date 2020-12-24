@@ -1,4 +1,5 @@
 // Tail a file and print its contents.
+//
 // In this example you can add lines to the syslog log by using the logger
 // command. Exit with Ctrl+C.
 package main
