@@ -6,6 +6,8 @@ jobs:
       matrix:
         go-version: [1.15.x, 1.14.x, 1.13.x, 1.12.x, 1.11.x]
         os: [ubuntu-latest, macos-latest, windows-latest]
+        goos: ["linux", "darwin", "windows"]
+        goarch: ["amd64"]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Install Go
@@ -19,11 +21,7 @@ jobs:
     - name: Test
       run: go test -race -v ./...
     - name: Build
-      run: |
-        export GOOS=linux GOARCH=amd64
-        echo "Building for $GOOS $GOARCH..."; go build
-        export GOOS=darwin GOARCH=amd64
-        echo "Building for $GOOS $GOARCH..."; go build
-        export GOOS=windows GOARCH=amd64
-        echo "Building for $GOOS $GOARCH..."; go build
-        echo "Done"
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: go build
