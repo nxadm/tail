@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/nxadm/tail.svg?branch=master)](https://travis-ci.org/nxadm/tail)
+[![Build Status](https://travis-ci.org/nxadm/tail.svg?branch=master)](https://travis-ci.org/nxadm/tail)[![Go Reference](https://pkg.go.dev/badge/github.com/nxadm/tail.svg)](https://pkg.go.dev/github.com/nxadm/tail)
 
 This is repo is forked from the dormant upstream repo at
 [hpcloud](https://github.com/hpcloud/tail). This fork adds support for go
@@ -30,7 +30,3 @@ designed to work with log rotation tools.
 ## Installing
 
     go get github.com/nxadm/tail/...
-
-## Windows support
-
-This package [needs assistance](https://github.com/nxadm/tail/labels/Windows) for full Windows support.
