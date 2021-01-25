@@ -17,7 +17,7 @@ jobs:
       with:
           fetch-depth: 0
     - name: Test
-      run: if [ ${{ matrix.platform }} == "1.10.x" ]]; then export GOFLAGS=-mod=vendor; fi; go test -race -v
+      run: go test -race -v ./...
     - name: Build
       run: |
         export GOOS=linux GOARCH=amd64
