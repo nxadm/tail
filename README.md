@@ -30,7 +30,3 @@ designed to work with log rotation tools.
 ## Installing
 
     go get github.com/nxadm/tail/...
-
-## Windows support
-
-This package [needs assistance](https://github.com/nxadm/tail/labels/Windows) for full Windows support.
