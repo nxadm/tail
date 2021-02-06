@@ -255,7 +255,9 @@ func (tail *Tail) tailFileSync() {
 	tail.openReader()
 
 	// Read line by line.
+	fmt.Println("before line loop")  // DEBUG
 	for {
+		fmt.Println("-----") // DEBUG
 		// do not seek in named pipes
 		if !tail.Pipe {
 			// grab the position in case we need to back up in the event of a half-line
@@ -265,11 +267,14 @@ func (tail *Tail) tailFileSync() {
 			}
 		}
 
+		fmt.Println("before readLine")  // DEBUG
 		line, err := tail.readLine()
-
-		// Process `line` even if err is EOF.
+		fmt.Println("after readLine")  // DEBUG
 		if err == nil {
+			fmt.Println("no err")  // DEBUG
+			fmt.Println("before cooloff from sendLine")  // DEBUG
 			cooloff := !tail.sendLine(line)
+			fmt.Println("before cooloff")  // DEBUG
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
@@ -286,14 +291,19 @@ func (tail *Tail) tailFileSync() {
 					return
 				}
 			}
-		} else if err == io.EOF {
+			fmt.Println("after cooloff")  // DEBUG
+		} else if err == io.EOF { // Process `line` even if err is EOF.
+			fmt.Println("EOF err")  // DEBUG
+			fmt.Println("before no follow")  // DEBUG
 			if !tail.Follow {
 				if line != "" {
 					tail.sendLine(line)
 				}
 				return
 			}
+			fmt.Println("after no follow")  // DEBUG
 
+			fmt.Println("before follow")  // DEBUG
 			if tail.Follow && line != "" {
 				tail.sendLine(line)
 				if err := tail.seekEnd(); err != nil {
@@ -301,11 +311,14 @@ func (tail *Tail) tailFileSync() {
 					return
 				}
 			}
+			fmt.Println("after follow")  // DEBUG
 
 			// When EOF is reached, wait for more data to become
 			// available. Wait strategy is based on the `tail.watcher`
 			// implementation (inotify or polling).
+			fmt.Println("before watching")  // DEBUG
 			err := tail.waitForChanges()
+			fmt.Println("after watching")  // DEBUG
 			if err != nil {
 				if err != ErrStop {
 					tail.Kill(err)
@@ -313,10 +326,12 @@ func (tail *Tail) tailFileSync() {
 				return
 			}
 		} else {
+			fmt.Printf("err: %s\n", err) // DEBUG
 			// non-EOF error
 			tail.Killf("Error reading %s: %s", tail.Filename, err)
 			return
 		}
+		fmt.Println("after else loop")  // DEBUG
 
 		select {
 		case <-tail.Dying():
@@ -327,12 +342,14 @@ func (tail *Tail) tailFileSync() {
 		default:
 		}
 	}
+	fmt.Println("after line loop")  // DEBUG
 }
 
 // waitForChanges waits until the file has been appended, deleted,
 // moved or truncated. When moved or deleted - the file will be
 // reopened if ReOpen is true. Truncated files are always reopened.
 func (tail *Tail) waitForChanges() error {
+	fmt.Println("entered waitForChanges") // DEBUG
 	if tail.changes == nil {
 		pos, err := tail.file.Seek(0, io.SeekCurrent)
 		if err != nil {
@@ -344,10 +361,13 @@ func (tail *Tail) waitForChanges() error {
 		}
 	}
 
+	fmt.Println("before select") // DEBUG
 	select {
 	case <-tail.changes.Modified:
+		fmt.Println("changes.Modified") // DEBUG
 		return nil
 	case <-tail.changes.Deleted:
+		fmt.Println("changes.Deleted") // DEBUG
 		tail.changes = nil
 		if tail.ReOpen {
 			// XXX: we must not log from a library.
@@ -362,6 +382,7 @@ func (tail *Tail) waitForChanges() error {
 		tail.Logger.Printf("Stopping tail as file no longer exists: %s", tail.Filename)
 		return ErrStop
 	case <-tail.changes.Truncated:
+		fmt.Println("changes.Truncated") // DEBUG
 		// Always reopen truncated files (Follow is true)
 		tail.Logger.Printf("Re-opening truncated file %s ...", tail.Filename)
 		if err := tail.reopen(); err != nil {

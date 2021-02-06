@@ -9,9 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/nxadm/tail/util"
-
-    "github.com/fsnotify/fsnotify"
 	"gopkg.in/tomb.v1"
 )
 
@@ -67,6 +66,7 @@ func (fw *InotifyFileWatcher) BlockUntilExists(t *tomb.Tomb) error {
 }
 
 func (fw *InotifyFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChanges, error) {
+	fmt.Println("entered ChangeEvents") // DEBUG
 	err := Watch(fw.Filename)
 	if err != nil {
 		return nil, err
@@ -76,15 +76,18 @@ func (fw *InotifyFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChange
 	fw.Size = pos
 
 	go func() {
+		fmt.Println("entered ChangeEvents goroutine") // DEBUG
 
 		events := Events(fw.Filename)
 
 		for {
+			fmt.Println("entered ChangeEvents goroutine watcher loop") // DEBUG
 			prevSize := fw.Size
 
 			var evt fsnotify.Event
 			var ok bool
 
+			fmt.Println("ChangeEvents goroutine watcher before events") // DEBUG
 			select {
 			case evt, ok = <-events:
 				if !ok {
@@ -95,21 +98,27 @@ func (fw *InotifyFileWatcher) ChangeEvents(t *tomb.Tomb, pos int64) (*FileChange
 				RemoveWatch(fw.Filename)
 				return
 			}
+			fmt.Println("ChangeEvents goroutine watcher after events") // DEBUG
 
+			fmt.Println("ChangeEvents goroutine watcher before events opss") // DEBUG
 			switch {
 			case evt.Op&fsnotify.Remove == fsnotify.Remove:
+				fmt.Println("event REMOVE") // DEBUG
 				fallthrough
 
 			case evt.Op&fsnotify.Rename == fsnotify.Rename:
+				fmt.Println("event RENAME") // DEBUG
 				RemoveWatch(fw.Filename)
 				changes.NotifyDeleted()
 				return
 
 			//With an open fd, unlink(fd) - inotify returns IN_ATTRIB (==fsnotify.Chmod)
 			case evt.Op&fsnotify.Chmod == fsnotify.Chmod:
+				fmt.Println("event CHMOD") // DEBUG
 				fallthrough
 
 			case evt.Op&fsnotify.Write == fsnotify.Write:
+				fmt.Println("event WRITE") // DEBUG
 				fi, err := os.Stat(fw.Filename)
 				if err != nil {
 					if os.IsNotExist(err) {
