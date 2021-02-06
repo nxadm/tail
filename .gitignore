@@ -1,3 +1,4 @@
 .idea/
 .test/
 examples/_*
+cmd/gotail/gotail
