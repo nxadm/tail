@@ -1,9 +1,10 @@
 ![ci](https://github.com/nxadm/tail/workflows/ci/badge.svg)[![Go Reference](https://pkg.go.dev/badge/github.com/nxadm/tail.svg)](https://pkg.go.dev/github.com/nxadm/tail)
 
-This project is an active, drop-in replacement for the abandoned upstream tail
-library at [hpcloud](https://github.com/hpcloud/tail). This fork adds support
-for go modules, updates the dependencies, adds features and fixes bugs. Go 1.9
-is the oldest compiler release supported.
+This project is an active, drop-in replacement for the
+[abandoned](https://en.wikipedia.org/wiki/HPE_Helion) upstream tail library at
+[hpcloud](https://github.com/hpcloud/tail). This fork adds support for go
+modules, updates the dependencies, adds features and fixes bugs. Go 1.9 is the
+oldest compiler release supported.
 
 # Go package for tail-ing files
 
