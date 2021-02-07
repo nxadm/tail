@@ -65,26 +65,28 @@ type logger interface {
 // Config is used to specify how a file must be tailed.
 type Config struct {
 	// File-specifc
-	Location    *SeekInfo // Seek to this location before tailing
-	ReOpen      bool      // Reopen recreated files (tail -F)
-	MustExist   bool      // Fail early if the file does not exist
-	Poll        bool      // Poll for file changes instead of using inotify
-	Pipe        bool      // Is a named pipe (mkfifo)
-	RateLimiter *ratelimiter.LeakyBucket // Use a ratelimiter (see the ratelimiter/NewLeakyBucket function)
+	Location  *SeekInfo // Tail from this location. If nil, start at the beginning of the file
+	ReOpen    bool      // Reopen recreated files (tail -F)
+	MustExist bool      // Fail early if the file does not exist
+	Poll      bool      // Poll for file changes instead of using the default inotify
+	Pipe      bool      // The file is a named pipe (mkfifo)
 
 	// Generic IO
 	Follow      bool // Continue looking for new lines (tail -f)
 	MaxLineSize int  // If non-zero, split longer lines into multiple lines
 
-	// Logger, when nil, is set to tail.DefaultLogger
-	// To disable logging: set field to tail.DiscardingLogger
+	// Optionally, use a ratelimiter (e.g. created by the ratelimiter/NewLeakyBucket function)
+	RateLimiter *ratelimiter.LeakyBucket
+
+	// Optionally use a Logger. When nil, the Logger is set to tail.DefaultLogger.
+	// To disable logging, set it to tail.DiscardingLogger
 	Logger logger
 }
 
 type Tail struct {
-	Filename string
-	Lines    chan *Line
-	Config
+	Filename string     // The filename
+	Lines    chan *Line // A consumable channel of *Line
+	Config              // Tail.Configuration
 
 	file    *os.File
 	reader  *bufio.Reader
@@ -99,16 +101,17 @@ type Tail struct {
 }
 
 var (
-	// DefaultLogger is used when Config.Logger == nil
+	// DefaultLogger logs to os.Stderr and it is used when Config.Logger == nil
 	DefaultLogger = log.New(os.Stderr, "", log.LstdFlags)
 	// DiscardingLogger can be used to disable logging output
 	DiscardingLogger = log.New(ioutil.Discard, "", 0)
 )
 
-// TailFile begins tailing the file. Output stream is made available
-// via the `Tail.Lines` channel. To handle errors during tailing,
-// invoke the `Wait` or `Err` method after finishing reading from the
-// `Lines` channel.
+// TailFile begins tailing the file. And returns a pointer to a Tail struct
+// and an error. An output stream is made available via the Tail.Lines
+// channel (e.g. to be looped and printed). To handle errors during tailing,
+// after finishing reading from the Lines channel, invoke the `Wait` or `Err`
+// method on the returned *Tail.
 func TailFile(filename string, config Config) (*Tail, error) {
 	if config.ReOpen && !config.Follow {
 		util.Fatal("cannot set ReOpen without Follow.")
@@ -144,10 +147,9 @@ func TailFile(filename string, config Config) (*Tail, error) {
 	return t, nil
 }
 
-// Tell returns the file's current position, like stdio's ftell().
-// But this value is not very accurate.
-// One line from the chan(tail.Lines) may have been read,
-// so it may have lost one line.
+// Tell returns the file's current position, like stdio's ftell() and an error.
+// Beware that this value may not be completely accurate because one line from
+// the chan(tail.Lines) may have been read already.
 func (tail *Tail) Tell() (offset int64, err error) {
 	if tail.file == nil {
 		return
@@ -173,7 +175,8 @@ func (tail *Tail) Stop() error {
 	return tail.Wait()
 }
 
-// StopAtEOF stops tailing as soon as the end of the file is reached.
+// StopAtEOF stops tailing as soon as the end of the file is reached. The function
+// returns an error,
 func (tail *Tail) StopAtEOF() error {
 	tail.Kill(errStopAtEOF)
 	return tail.Wait()

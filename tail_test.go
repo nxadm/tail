@@ -8,6 +8,7 @@
 package tail
 
 import (
+	"fmt"
 	_ "fmt"
 	"io"
 	"io/ioutil"
@@ -26,6 +27,39 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestTailFile(t *testing.T) {
+	t.SkipNow()
+}
+
+func ExampleTailFile() {
+	// Write a test file (ignoring error checking)
+	testFileName := ".test/TailFail.txt"
+	file, err := os.Create(testFileName)
+	if err != nil {
+		panic(err)
+	}
+	_, err = file.WriteString("a\nb\nc\n")
+	if err != nil {
+		panic(err)
+	}
+	file.Close()
+	defer os.Remove(testFileName)
+
+	// Just tail a file using the defaults.
+	tailedFile, err := TailFile(testFileName, Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	for line := range tailedFile.Lines {
+		fmt.Println(line.Text)
+	}
+	// Output:
+	//a
+	//b
+	//c
 }
 
 func TestMain(m *testing.M) {
