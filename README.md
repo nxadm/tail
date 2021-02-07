@@ -8,7 +8,7 @@ it is designed to work with log rotation tools. The library works on all
 operating systems supported by Go, including POSIX systems like Linux and
 *BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
 
-A simple exampled:
+A simple example:
 
 ```Go
 t, err := tail.TailFile(
@@ -37,3 +37,6 @@ This project is an active, drop-in replacement for the
 nxadm/tail continues the development by keeping up to date with the Go toolchain
 (e.g. go modules) and dependencies, completing the documentation, adding features
 and fixing bugs.
+
+## Examples
+Examples, e.g. used to debug an issue, are kept in the [examples directory](/examples).

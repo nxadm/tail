@@ -37,7 +37,7 @@ func main() {
 	}
 
 	if n != 0 {
-		config.Location = &tail.SeekInfo{-n, io.SeekEnd}
+		config.Location = &tail.SeekInfo{Offset: -n, Whence: io.SeekEnd}
 	}
 
 	done := make(chan bool)
@@ -45,7 +45,7 @@ func main() {
 		go tailFile(filename, config, done)
 	}
 
-	for _, _ = range flag.Args() {
+	for range flag.Args() {
 		<-done
 	}
 }
