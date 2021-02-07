@@ -1,4 +1,6 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/nxadm/tail.svg)](https://pkg.go.dev/github.com/nxadm/tail)![[Linux/MacOS/Windows](https://github.com/nxadm/tail/workflows/ci/badge.svg)]![[FreeBSD](https://api.cirrus-ci.com/github/nxadm/tail.svg)](https://cirrus-ci.com/github/nxadm/tail)]
+[![Go Reference](https://pkg.go.dev/badge/github.com/nxadm/tail.svg)](https://pkg.go.dev/github.com/nxadm/tail)
+![Linux/MacOS/Windows](https://github.com/nxadm/tail/workflows/ci/badge.svg)
+[![FreeBSD](https://api.cirrus-ci.com/github/nxadm/tail.svg)](https://cirrus-ci.com/github/nxadm/tail)
 # tail functionality in Go
 
 nxadm/tail provides a Go library that emulates the features of the BSD `tail`
