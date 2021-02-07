@@ -1,6 +1,7 @@
-# Version v1.4.7
-* Documentation update and cleanup release.
+# Version v1.4.7-v1.4.8
+* Documentation updates.
 * Small linter cleanups.
+* Added example in test. 
 
 # Version v1.4.6
 
