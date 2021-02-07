@@ -38,6 +38,7 @@ type Line struct {
 	SeekInfo SeekInfo  // SeekInfo
 	Time     time.Time // Present time
 	Err      error     // Error from tail
+	EOL      bool      // End of line
 }
 
 // Deprecated: this function is no longer used internally and it has little of no
@@ -45,8 +46,8 @@ type Line struct {
 // release.
 //
 // NewLine returns a * pointer to a Line struct.
-func NewLine(text string, lineNum int) *Line {
-	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil}
+func NewLine(text string, lineNum int, eol bool) *Line {
+	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil, eol}
 }
 
 // SeekInfo represents arguments to io.Seek. See: https://golang.org/pkg/io/#SectionReader.Seek
@@ -282,13 +283,13 @@ func (tail *Tail) tailFileSync() {
 
 		// Process `line` even if err is EOF.
 		if err == nil {
-			cooloff := !tail.sendLine(line)
+			cooloff := !tail.sendLine(line, true)
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
 				msg := ("Too much log activity; waiting a second before resuming tailing")
 				offset, _ := tail.Tell()
-				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg)}
+				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg),false}
 				select {
 				case <-time.After(time.Second):
 				case <-tail.Dying():
@@ -302,13 +303,13 @@ func (tail *Tail) tailFileSync() {
 		} else if err == io.EOF {
 			if !tail.Follow {
 				if line != "" {
-					tail.sendLine(line)
+					tail.sendLine(line, false)
 				}
 				return
 			}
 
 			if tail.Follow && line != "" {
-				tail.sendLine(line)
+				tail.sendLine(line, true)
 				if err := tail.seekEnd(); err != nil {
 					tail.Kill(err)
 					return
@@ -415,7 +416,7 @@ func (tail *Tail) seekTo(pos SeekInfo) error {
 
 // sendLine sends the line(s) to Lines channel, splitting longer lines
 // if necessary. Return false if rate limit is reached.
-func (tail *Tail) sendLine(line string) bool {
+func (tail *Tail) sendLine(line string, eol bool) bool {
 	now := time.Now()
 	lines := []string{line}
 
@@ -428,7 +429,7 @@ func (tail *Tail) sendLine(line string) bool {
 		tail.lineNum++
 		offset, _ := tail.Tell()
 		select {
-		case tail.Lines <- &Line{line, tail.lineNum, SeekInfo{Offset: offset}, now, nil}:
+		case tail.Lines <- &Line{line, tail.lineNum, SeekInfo{Offset: offset}, now, nil, eol}:
 		case <-tail.Dying():
 			return true
 		}

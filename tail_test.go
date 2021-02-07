@@ -33,13 +33,11 @@ func TestTailFile(t *testing.T) {
 	t.SkipNow()
 }
 
-func ExampleTailFile_1() {
+func ExampleTailFile() {
 	// Keep tracking a file even when recreated.
-	// Write a test file (ignoring error checking)
-
 	// /var/log/messages is typically continuously written and rotated daily.
 	testFileName := "/var/log/messages"
-	// ReOpen when truncated, wait for new input when EOL is reached
+	// ReOpen when truncated, Follow to wait for new input when EOL is reached
 	tailedFile, err := TailFile(testFileName, Config{ReOpen: true, Follow: true})
 	if err != nil {
 		panic(err)
@@ -49,37 +47,6 @@ func ExampleTailFile_1() {
 		fmt.Println(line.Text)
 	}
 	// Prints all the lines in the logfile and keeps printing new input
-}
-
-func ExampleTailFile_2() {
-	// Tail a file until the EOF and exit.
-
-	// Write a test file (ignoring error checking)
-	testFileName := ".test/TailFail.txt"
-	file, err := os.Create(testFileName)
-	if err != nil {
-		panic(err)
-	}
-	_, err = file.WriteString("a\nb\nc\n")
-	if err != nil {
-		panic(err)
-	}
-	file.Close()
-	defer os.Remove(testFileName)
-
-	// Just tail a file using the defaults.
-	tailedFile, err := TailFile(testFileName, Config{})
-	if err != nil {
-		panic(err)
-	}
-
-	for line := range tailedFile.Lines {
-		fmt.Println(line.Text)
-	}
-	// Output:
-	//a
-	//b
-	//c
 }
 
 func TestMain(m *testing.M) {
