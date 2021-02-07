@@ -11,12 +11,14 @@ operating systems supported by Go, including POSIX systems like Linux and
 A simple example:
 
 ```Go
+// Create a tail
 t, err := tail.TailFile(
 	"/var/log/nginx.log", tail.Config{Follow: true, ReOpen: true})
 if err != nil {
     panic(err)
 }
 
+// Print the text of each received line
 for line := range t.Lines {
     fmt.Println(line.Text)
 }
