@@ -5,8 +5,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/nxadm/tail"
 	"time"
+
+	"github.com/nxadm/tail"
 )
 
 var logFile = "/var/log/syslog"
@@ -35,7 +36,6 @@ func main() {
 	// As the documentation states: "This function is meant to be invoked from a process's exit handler".
 	//t.Cleanup()
 
-
 	// Reopen the file and print it
 	t, err = tail.TailFile(logFile, tail.Config{Follow: true})
 	if err != nil {
@@ -46,6 +46,4 @@ func main() {
 	for line := range t.Lines {
 		fmt.Println(line.Text)
 	}
-
-
 }

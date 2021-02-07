@@ -1,3 +1,4 @@
+// Copyright (c) 2019 FOSS contributors of https://github.com/nxadm/tail
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
@@ -36,7 +37,7 @@ func main() {
 	}
 
 	if n != 0 {
-		config.Location = &tail.SeekInfo{-n, io.SeekEnd}
+		config.Location = &tail.SeekInfo{Offset: -n, Whence: io.SeekEnd}
 	}
 
 	done := make(chan bool)
@@ -44,7 +45,7 @@ func main() {
 		go tailFile(filename, config, done)
 	}
 
-	for _, _ = range flag.Args() {
+	for range flag.Args() {
 		<-done
 	}
 }
