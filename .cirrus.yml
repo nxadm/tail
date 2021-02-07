@@ -1,7 +1,8 @@
-freebsd_instance:
-  image-family: freebsd-12-2
 task:
-  name: Go build & tests
+  name: FreeBSD (shortest)
+  freebsd_instance:
+      image_family: freebsd-12-2
   install_script: pkg install -y go
-  build_script: go build
-  test_script: go test -v -race ./...
+  script: |
+    go build
+    go test -v -race ./...
