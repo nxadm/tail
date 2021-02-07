@@ -23,26 +23,31 @@ import (
 )
 
 var (
+	// ErrStop is returned when the tail of a file has been marked to be stopped.
 	ErrStop = errors.New("tail should now stop")
 )
 
 type Line struct {
-	Text     string
-	Num      int
-	SeekInfo SeekInfo
-	Time     time.Time
-	Err      error // Error from tail
+	Text     string    // The contents of the file
+	Num      int       // The line number
+	SeekInfo SeekInfo  // SeekInfo
+	Time     time.Time // Present time
+	Err      error     // Error from tail
 }
 
-// NewLine returns a Line with present time.
+// Deprecated: this function is no longer used internally and it has little of no
+// use in the API. As such, it will be removed from the API in a future major
+// release.
+//
+// NewLine returns a * pointer to a Line struct.
 func NewLine(text string, lineNum int) *Line {
 	return &Line{text, lineNum, SeekInfo{}, time.Now(), nil}
 }
 
-// SeekInfo represents arguments to `io.Seek`
+// SeekInfo represents arguments to io.Seek. See: https://golang.org/pkg/io/#SectionReader.Seek
 type SeekInfo struct {
 	Offset int64
-	Whence int // io.Seek*
+	Whence int
 }
 
 type logger interface {
@@ -65,7 +70,7 @@ type Config struct {
 	MustExist   bool      // Fail early if the file does not exist
 	Poll        bool      // Poll for file changes instead of using inotify
 	Pipe        bool      // Is a named pipe (mkfifo)
-	RateLimiter *ratelimiter.LeakyBucket
+	RateLimiter *ratelimiter.LeakyBucket // Use a ratelimiter (see the ratelimiter/NewLeakyBucket function)
 
 	// Generic IO
 	Follow      bool // Continue looking for new lines (tail -f)

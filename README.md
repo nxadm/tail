@@ -2,9 +2,12 @@
 
 This project is an active, drop-in replacement for the
 [abandoned](https://en.wikipedia.org/wiki/HPE_Helion) Go tail library at
-[hpcloud](https://github.com/hpcloud/tail). This fork adds support for go
-modules, updates the dependencies, adds features and fixes bugs. Go 1.9 is the
-oldest compiler release supported.
+[hpcloud](https://github.com/hpcloud/tail). Besides adressing open issues/PRs
+of the original project, nxadm/tail continues the development by keeping
+up to date with the Go toolchain (e.g. go modules) and dependencies, completing
+the documentation, adding features and fixing bugs.
+
+Go 1.9 is the oldest compiler release supported.
 
 # Go package for tail-ing files
 
