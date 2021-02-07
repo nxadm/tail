@@ -1,5 +1,5 @@
 task:
-  name: FreeBSD (shortest)
+  name: FreeBSD
   freebsd_instance:
       image_family: freebsd-12-2
   install_script: pkg install -y go
