@@ -8,10 +8,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nxadm/tail"
 	"io/ioutil"
 	"os"
 	"strconv"
+	
+	"github.com/nxadm/tail"
 )
 
 type jsonStruct struct {
