@@ -569,7 +569,7 @@ func TestIncompleteLinesWithReopens(t *testing.T) {
 	}
 	tail := tailTest.StartTail(filename, config)
 	go func() {
-		// time.Sleep(100 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		tailTest.CreateFile(filename, "hello world\nhi")
 		time.Sleep(100 * time.Millisecond)
 		tailTest.TruncateFile(filename, "rewriting\n")
@@ -579,6 +579,29 @@ func TestIncompleteLinesWithReopens(t *testing.T) {
 	lines := []string{"hello world", "rewriting"}
 
 	tailTest.ReadLines(tail, lines, false)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
+func TestIncompleteLinesWithoutFollow(t *testing.T) {
+	tailTest := NewTailTest("incomplete-lines", t)
+	filename := "test.txt"
+	config := Config{
+		Follow:        false,
+		CompleteLines: true,
+	}
+	tail := tailTest.StartTail(filename, config)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		// intentionally missing a newline at the end
+		tailTest.CreateFile(filename, "foo\nbar\nbaz")
+	}()
+
+	lines := []string{"foo", "bar", "baz"}
+
+	tailTest.VerifyTailOutput(tail, lines, true)
 
 	tailTest.RemoveFile(filename)
 	tail.Stop()

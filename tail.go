@@ -79,7 +79,7 @@ type Config struct {
 	// Generic IO
 	Follow        bool // Continue looking for new lines (tail -f)
 	MaxLineSize   int  // If non-zero, split longer lines into multiple lines
-	CompleteLines bool // Only return complete lines (that end with "\n")
+	CompleteLines bool // Only return complete lines (that end with "\n" or EOF when Follow is false)
 
 	// Optionally, use a ratelimiter (e.g. created by the ratelimiter/NewLeakyBucket function)
 	RateLimiter *ratelimiter.LeakyBucket
@@ -255,7 +255,10 @@ func (tail *Tail) readLine() (string, error) {
 		tail.lineBuf.Reset()
 		return line, nil
 	} else {
-		return "", io.EOF
+		if tail.Config.Follow {
+			line = ""
+		}
+		return line, io.EOF
 	}
 }
 
