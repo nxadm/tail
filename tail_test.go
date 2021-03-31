@@ -505,6 +505,61 @@ func TestInotify_WaitForCreateThenMove(t *testing.T) {
 	tailTest.Cleanup(tail, false)
 }
 
+func TestIncompleteLines(t *testing.T) {
+	tailTest := NewTailTest("incomplete-lines", t)
+	filename := "test.txt"
+	config := Config{
+		Follow:        true,
+		CompleteLines: true,
+	}
+	tail := tailTest.StartTail(filename, config)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		tailTest.CreateFile(filename, "hello world\n")
+		time.Sleep(100 * time.Millisecond)
+		// here we intentially write a partial line to see if `Tail` contains
+		// information that it's incomplete
+		tailTest.AppendFile(filename, "hello")
+		time.Sleep(100 * time.Millisecond)
+		tailTest.AppendFile(filename, " again\n")
+	}()
+
+	lines := []string{"hello world", "hello again"}
+
+	tailTest.ReadLines(tail, lines, false)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
+func TestIncompleteLongLines(t *testing.T) {
+	tailTest := NewTailTest("incomplete-lines", t)
+	filename := "test.txt"
+	config := Config{
+		Follow:        true,
+		MaxLineSize:   3,
+		CompleteLines: true,
+	}
+	tail := tailTest.StartTail(filename, config)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		tailTest.CreateFile(filename, "hello world\n")
+		time.Sleep(100 * time.Millisecond)
+		tailTest.AppendFile(filename, "hello")
+		time.Sleep(100 * time.Millisecond)
+		tailTest.AppendFile(filename, "again\n")
+	}()
+
+	lines := []string{"hel", "lo ", "wor", "ld", "hel", "loa", "gai", "n"}
+
+	tailTest.ReadLines(tail, lines, false)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
 func reSeek(t *testing.T, poll bool) {
 	var name string
 	if poll {

@@ -77,8 +77,9 @@ type Config struct {
 	Pipe      bool      // The file is a named pipe (mkfifo)
 
 	// Generic IO
-	Follow      bool // Continue looking for new lines (tail -f)
-	MaxLineSize int  // If non-zero, split longer lines into multiple lines
+	Follow        bool // Continue looking for new lines (tail -f)
+	MaxLineSize   int  // If non-zero, split longer lines into multiple lines
+	CompleteLines bool // Only return complete lines (that end with "\n")
 
 	// Optionally, use a ratelimiter (e.g. created by the ratelimiter/NewLeakyBucket function)
 	RateLimiter *ratelimiter.LeakyBucket
@@ -96,6 +97,8 @@ type Tail struct {
 	file    *os.File
 	reader  *bufio.Reader
 	lineNum int
+
+	lineBuf *strings.Builder
 
 	watcher watch.FileWatcher
 	changes *watch.FileChanges
@@ -202,6 +205,7 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
+	// TODO(PR): should we reset the lineBuf (if it exists)?
 	tail.closeFile()
 	tail.lineNum = 0
 	for {
@@ -229,16 +233,29 @@ func (tail *Tail) readLine() (string, error) {
 	tail.lk.Lock()
 	line, err := tail.reader.ReadString('\n')
 	tail.lk.Unlock()
-	if err != nil {
-		// Note ReadString "returns the data read before the error" in
-		// case of an error, including EOF, so we return it as is. The
-		// caller is expected to process it if err is EOF.
+
+	if tail.lineBuf == nil {
+		tail.lineBuf = new(strings.Builder) // TODO(PR): should this be in the constructor or some place?
+	}
+
+	if _, err := tail.lineBuf.WriteString(line); err != nil {
 		return line, err
 	}
 
-	line = strings.TrimRight(line, "\n")
+	line = tail.lineBuf.String()
+	newlineEnding := strings.HasSuffix(line, "\n")
+	if newlineEnding {
+		tail.lineBuf.Reset()
+	}
 
-	return line, err
+	if tail.Config.CompleteLines && !newlineEnding {
+		return "", io.EOF
+	}
+
+	// Note ReadString "returns the data read before the error" in
+	// case of an error, including EOF, so we return it as is. The
+	// caller is expected to process it if err is EOF.
+	return strings.TrimRight(line, "\n"), err
 }
 
 func (tail *Tail) tailFileSync() {
