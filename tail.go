@@ -129,6 +129,7 @@ func TailFile(filename string, config Config) (*Tail, error) {
 		Filename: filename,
 		Lines:    make(chan *Line),
 		Config:   config,
+		lineBuf:  new(strings.Builder),
 	}
 
 	// when Logger was not specified in config, use default logger
@@ -205,9 +206,7 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
-	if tail.lineBuf != nil {
-		tail.lineBuf = nil
-	}
+	tail.lineBuf.Reset()
 	tail.closeFile()
 	tail.lineNum = 0
 	for {
@@ -236,28 +235,28 @@ func (tail *Tail) readLine() (string, error) {
 	line, err := tail.reader.ReadString('\n')
 	tail.lk.Unlock()
 
-	if tail.lineBuf == nil {
-		tail.lineBuf = new(strings.Builder) // TODO(PR): should this be in the constructor or some place?
+	newlineEnding := strings.HasSuffix(line, "\n")
+	line = strings.TrimRight(line, "\n")
+
+	// if we don't have to handle incomplete lines, we can return the line as-is
+	if !tail.Config.CompleteLines {
+		// Note ReadString "returns the data read before the error" in
+		// case of an error, including EOF, so we return it as is. The
+		// caller is expected to process it if err is EOF.
+		return line, err
 	}
 
 	if _, err := tail.lineBuf.WriteString(line); err != nil {
 		return line, err
 	}
 
-	line = tail.lineBuf.String()
-	newlineEnding := strings.HasSuffix(line, "\n")
 	if newlineEnding {
+		line = tail.lineBuf.String()
 		tail.lineBuf.Reset()
-	}
-
-	if tail.Config.CompleteLines && !newlineEnding {
+		return line, nil
+	} else {
 		return "", io.EOF
 	}
-
-	// Note ReadString "returns the data read before the error" in
-	// case of an error, including EOF, so we return it as is. The
-	// caller is expected to process it if err is EOF.
-	return strings.TrimRight(line, "\n"), err
 }
 
 func (tail *Tail) tailFileSync() {
