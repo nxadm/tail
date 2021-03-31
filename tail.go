@@ -205,7 +205,9 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
-	// TODO(PR): should we reset the lineBuf (if it exists)?
+	if tail.lineBuf != nil {
+		tail.lineBuf = nil
+	}
 	tail.closeFile()
 	tail.lineNum = 0
 	for {

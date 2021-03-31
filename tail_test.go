@@ -560,6 +560,31 @@ func TestIncompleteLongLines(t *testing.T) {
 	tail.Cleanup()
 }
 
+func TestIncompleteLinesWithReopens(t *testing.T) {
+	tailTest := NewTailTest("incomplete-lines", t)
+	filename := "test.txt"
+	config := Config{
+		Follow:        true,
+		CompleteLines: true,
+	}
+	tail := tailTest.StartTail(filename, config)
+	go func() {
+		// time.Sleep(100 * time.Millisecond)
+		tailTest.CreateFile(filename, "hello world\nhi")
+		time.Sleep(100 * time.Millisecond)
+		tailTest.TruncateFile(filename, "rewriting\n")
+	}()
+
+	// not that the "hi" gets lost, because it was never a complete line
+	lines := []string{"hello world", "rewriting"}
+
+	tailTest.ReadLines(tail, lines, false)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
 func reSeek(t *testing.T, poll bool) {
 	var name string
 	if poll {
