@@ -17,7 +17,7 @@ jobs:
       with:
           fetch-depth: 0
     - name: Test
-      run: go test -race -v ./...
+      run: go test -race -v -timeout 2m ./...
     - name: Build lib
       run: go build
     - name: Build cmd
