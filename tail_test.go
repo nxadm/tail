@@ -534,7 +534,7 @@ func TestIncompleteLines(t *testing.T) {
 }
 
 func TestIncompleteLongLines(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines", t)
+	tailTest := NewTailTest("incomplete-lines-long", t)
 	filename := "test.txt"
 	config := Config{
 		Follow:        true,
@@ -561,7 +561,7 @@ func TestIncompleteLongLines(t *testing.T) {
 }
 
 func TestIncompleteLinesWithReopens(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines", t)
+	tailTest := NewTailTest("incomplete-lines-reopens", t)
 	filename := "test.txt"
 	config := Config{
 		Follow:        true,
@@ -586,7 +586,7 @@ func TestIncompleteLinesWithReopens(t *testing.T) {
 }
 
 func TestIncompleteLinesWithoutFollow(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines", t)
+	tailTest := NewTailTest("incomplete-lines-no-follow", t)
 	filename := "test.txt"
 	config := Config{
 		Follow:        false,
