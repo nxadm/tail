@@ -21,14 +21,6 @@ import (
 	"github.com/nxadm/tail/watch"
 )
 
-func init() {
-	// Clear the temporary test directory
-	err := os.RemoveAll(".test")
-	if err != nil {
-		panic(err)
-	}
-}
-
 func TestTailFile(t *testing.T) {
 	t.SkipNow()
 }
@@ -546,13 +538,7 @@ type TailTest struct {
 }
 
 func NewTailTest(name string, t *testing.T) TailTest {
-	tt := TailTest{name, ".test/" + name, make(chan struct{}), t}
-	err := os.MkdirAll(tt.path, os.ModeTemporary|0700)
-	if err != nil {
-		tt.Fatal(err)
-	}
-
-	return tt
+	return TailTest{name, t.TempDir(), make(chan struct{}), t}
 }
 
 func (t TailTest) CreateFile(name string, contents string) {
