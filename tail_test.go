@@ -538,7 +538,18 @@ type TailTest struct {
 }
 
 func NewTailTest(name string, t *testing.T) TailTest {
-	return TailTest{name, t.TempDir(), make(chan struct{}), t}
+	testdir, err := ioutil.TempDir("", "tail-test-" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.RemoveAll(testdir); err != nil {
+			t.Logf("failed to remove test directory: %v", testdir)
+		}
+	})
+
+	return TailTest{name, testdir, make(chan struct{}), t}
 }
 
 func (t TailTest) CreateFile(name string, contents string) {
