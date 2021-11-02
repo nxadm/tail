@@ -1,7 +1,10 @@
+# Version v1.4.9
+* Bump fsnotify to v1.5.1 fixes issue #28, hpcloud/tail#90.
+
 # Version v1.4.7-v1.4.8
 * Documentation updates.
 * Small linter cleanups.
-* Added example in test. 
+* Added example in test.
 
 # Version v1.4.6
 
