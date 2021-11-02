@@ -129,7 +129,10 @@ func TailFile(filename string, config Config) (*Tail, error) {
 		Filename: filename,
 		Lines:    make(chan *Line),
 		Config:   config,
-		lineBuf:  new(strings.Builder),
+	}
+
+	if config.CompleteLines {
+		t.lineBuf = new(strings.Builder)
 	}
 
 	// when Logger was not specified in config, use default logger
@@ -206,7 +209,9 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
-	tail.lineBuf.Reset()
+	if tail.lineBuf != nil {
+		tail.lineBuf.Reset()
+	}
 	tail.closeFile()
 	tail.lineNum = 0
 	for {
