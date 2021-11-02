@@ -516,7 +516,8 @@ func TestInotify_WaitForCreateThenMove(t *testing.T) {
 }
 
 func TestIncompleteLines(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines", t)
+	tailTest, cleanup := NewTailTest("incomplete-lines", t)
+	defer cleanup()
 	filename := "test.txt"
 	config := Config{
 		Follow:        true,
@@ -544,7 +545,8 @@ func TestIncompleteLines(t *testing.T) {
 }
 
 func TestIncompleteLongLines(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines-long", t)
+	tailTest, cleanup := NewTailTest("incomplete-lines-long", t)
+	defer cleanup()
 	filename := "test.txt"
 	config := Config{
 		Follow:        true,
@@ -571,7 +573,8 @@ func TestIncompleteLongLines(t *testing.T) {
 }
 
 func TestIncompleteLinesWithReopens(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines-reopens", t)
+	tailTest, cleanup := NewTailTest("incomplete-lines-reopens", t)
+	defer cleanup()
 	filename := "test.txt"
 	config := Config{
 		Follow:        true,
@@ -596,7 +599,8 @@ func TestIncompleteLinesWithReopens(t *testing.T) {
 }
 
 func TestIncompleteLinesWithoutFollow(t *testing.T) {
-	tailTest := NewTailTest("incomplete-lines-no-follow", t)
+	tailTest, cleanup := NewTailTest("incomplete-lines-no-follow", t)
+	defer cleanup()
 	filename := "test.txt"
 	config := Config{
 		Follow:        false,
@@ -660,7 +664,7 @@ type TailTest struct {
 }
 
 func NewTailTest(name string, t *testing.T) (TailTest, func()) {
-	testdir, err := ioutil.TempDir("", "tail-test-" + name)
+	testdir, err := ioutil.TempDir("", "tail-test-"+name)
 	if err != nil {
 		t.Fatal(err)
 	}
