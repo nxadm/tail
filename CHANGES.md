@@ -1,5 +1,6 @@
 # Version v1.4.9
 * Bump fsnotify to v1.5.1 fixes issue #28, hpcloud/tail#90.
+* PR #27: "Add timeout to tests"by @kokes++.
 * PR #29: "Use temp directory for tests, instead of relative" by @ches++.
 
 # Version v1.4.7-v1.4.8
