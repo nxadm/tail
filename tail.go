@@ -70,6 +70,7 @@ type logger interface {
 // Config is used to specify how a file must be tailed.
 type Config struct {
 	// File-specifc
+	N         uint64    // Start from n last lines (tail -n)
 	Location  *SeekInfo // Tail from this location. If nil, start at the beginning of the file
 	ReOpen    bool      // Reopen recreated files (tail -F)
 	MustExist bool      // Fail early if the file does not exist
@@ -279,6 +280,54 @@ func (tail *Tail) tailFileSync() {
 				tail.Kill(err)
 			}
 			return
+		}
+	}
+
+	if tail.Location == nil && tail.N > 0 {
+		var lines uint64 = 0
+		var cursor int64 = 0
+		stat, err := tail.file.Stat()
+		if err == nil {
+			filesize := stat.Size()
+			for {
+				if filesize == 0 {
+					break
+				}
+				cursor--
+				if cursor == -1 {
+					_, err = tail.file.Seek(-1, io.SeekEnd)
+				} else {
+					_, err = tail.file.Seek(-2, io.SeekCurrent)
+				}
+				if err != nil {
+					tail.Killf("Seek error on %s: %s", tail.Filename, err)
+					return
+				}
+
+				char := make([]byte, 1)
+				_, err = tail.file.Read(char)
+				if err != nil {
+					tail.Killf("Seek error on %s: %s", tail.Filename, err)
+					return
+				}
+
+				if cursor != -1 && (char[0] == 10 || char[0] == 13) { // line found
+					lines++
+
+					if lines == tail.N {
+						cursor++
+						break
+					}
+				}
+
+				if cursor == -filesize {
+					break
+				}
+			}
+
+			if cursor < 0 {
+				tail.Location = &SeekInfo{Offset: cursor, Whence: io.SeekEnd}
+			}
 		}
 	}
 

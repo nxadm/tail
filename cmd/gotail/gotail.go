@@ -7,16 +7,18 @@ package main
 import (
 	"flag"
 	"fmt"
-    "io"
-	"os"
 	"github.com/nxadm/tail"
+	"io"
+	"os"
 )
 
 func args2config() (tail.Config, int64) {
 	config := tail.Config{Follow: true}
+	N := uint64(0)
 	n := int64(0)
 	maxlinesize := int(0)
 	flag.Int64Var(&n, "n", 0, "tail from the last Nth location")
+	flag.Uint64Var(&N, "N", 0, "tail from the last Nth line")
 	flag.IntVar(&maxlinesize, "max", 0, "max line size")
 	flag.BoolVar(&config.Follow, "f", false, "wait for additional data to be appended to the file")
 	flag.BoolVar(&config.ReOpen, "F", false, "follow, and track file rename/rotation")
@@ -25,6 +27,7 @@ func args2config() (tail.Config, int64) {
 	if config.ReOpen {
 		config.Follow = true
 	}
+	config.N = N
 	config.MaxLineSize = maxlinesize
 	return config, n
 }
