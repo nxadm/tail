@@ -73,6 +73,7 @@ type Config struct {
 	Location  *SeekInfo // Tail from this location. If nil, start at the beginning of the file
 	ReOpen    bool      // Reopen recreated files (tail -F)
 	MustExist bool      // Fail early if the file does not exist
+  SyncOpen  bool      // Do any seek operation before returning from TailFile.
 	Poll      bool      // Poll for file changes instead of using the default inotify
 	Pipe      bool      // The file is a named pipe (mkfifo)
 
@@ -146,12 +147,25 @@ func TailFile(filename string, config Config) (*Tail, error) {
 		t.watcher = watch.NewInotifyFileWatcher(filename)
 	}
 
-	if t.MustExist {
+	if t.MustExist || t.SyncOpen {
 		var err error
 		t.file, err = OpenFile(t.Filename)
-		if err != nil {
-			return nil, err
-		}
+		if t.MustExist {
+      if err != nil {
+			  return nil, err
+		  }
+    }
+    if t.SyncOpen && err == nil && t.Location != nil {
+      // Do any required seek operation before returning from TailFile.
+      //
+      // If the file didn't already exist, it's reasonable to assume that
+      // we shouldn't seek later when it opens, because its size when we
+      // first tried to open it was zero, so not seeking at all is fine.
+		  _, err = t.file.Seek(t.Location.Offset, t.Location.Whence)
+      if err != nil {
+        return nil, err
+      }
+    }
 	}
 
 	go t.tailFileSync()
@@ -283,7 +297,7 @@ func (tail *Tail) tailFileSync() {
 	}
 
 	// Seek to requested location on first open of the file.
-	if tail.Location != nil {
+	if tail.Location != nil && !tail.SyncOpen {
 		_, err := tail.file.Seek(tail.Location.Offset, tail.Location.Whence)
 		if err != nil {
 			tail.Killf("Seek error on %s: %s", tail.Filename, err)
