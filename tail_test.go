@@ -74,13 +74,13 @@ func TestMustExist(t *testing.T) {
 // stress --hdd 8 (to make the filesystem very busy), will fail most
 // of the time. (It fails significantly even without stress.)
 func TestSeeksSynchronously(t *testing.T) {
-  tailTest, cleanup := NewTailTest("seeks-synchronously", t)
-  defer cleanup()
-  tailTest.CreateFile("test.txt", "hello\nworld\n")
-  tail := tailTest.StartTail("test.txt", Config{SyncOpen: true, Location: &SeekInfo{0, io.SeekEnd}})
-  go tailTest.VerifyTailOutput(tail, []string{"more","data"}, false)
-  tailTest.AppendToFile("test.txt", "more\ndata\n")
-  tailTest.Cleanup(tail, true)
+	tailTest, cleanup := NewTailTest("seeks-synchronously", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "hello\nworld\n")
+	tail := tailTest.StartTail("test.txt", Config{SyncOpen: true, Location: &SeekInfo{0, io.SeekEnd}})
+	go tailTest.VerifyTailOutput(tail, []string{"more", "data"}, false)
+	tailTest.AppendToFile("test.txt", "more\ndata\n")
+	tailTest.Cleanup(tail, true)
 }
 
 func TestWaitsForFileToExist(t *testing.T) {
