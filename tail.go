@@ -2,11 +2,11 @@
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-//nxadm/tail provides a Go library that emulates the features of the BSD `tail`
-//program. The library comes with full support for truncation/move detection as
-//it is designed to work with log rotation tools. The library works on all
-//operating systems supported by Go, including POSIX systems like Linux and
-//*BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
+// nxadm/tail provides a Go library that emulates the features of the BSD `tail`
+// program. The library comes with full support for truncation/move detection as
+// it is designed to work with log rotation tools. The library works on all
+// operating systems supported by Go, including POSIX systems like Linux and
+// *BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
 package tail
 
 import (
@@ -241,7 +241,7 @@ func (tail *Tail) readLine() (string, error) {
 	tail.lk.Unlock()
 
 	newlineEnding := strings.HasSuffix(line, "\n")
-	line = strings.TrimRight(line, "\n")
+	line = strings.TrimRight(line, "\r\n")
 
 	// if we don't have to handle incomplete lines, we can return the line as-is
 	if !tail.Config.CompleteLines {
