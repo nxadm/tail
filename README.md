@@ -1,9 +1,9 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/nxadm/tail.svg)](https://pkg.go.dev/github.com/nxadm/tail#section-documentation)
-![ci](https://github.com/nxadm/tail/workflows/ci/badge.svg)
-[![FreeBSD](https://api.cirrus-ci.com/github/nxadm/tail.svg)](https://cirrus-ci.com/github/nxadm/tail)
+[![Go Reference](https://pkg.go.dev/badge/github.com/SEKOIA-IO/tail.svg)](https://pkg.go.dev/github.com/SEKOIA-IO/tail#section-documentation)
+![ci](https://github.com/SEKOIA-IO/tail/workflows/ci/badge.svg)
+[![FreeBSD](https://api.cirrus-ci.com/github/SEKOIA-IO/tail.svg)](https://cirrus-ci.com/github/SEKOIA-IO/tail)
 # tail functionality in Go
 
-nxadm/tail provides a Go library that emulates the features of the BSD `tail`
+SEKOIA-IO/tail provides a Go library that emulates the features of the BSD `tail`
 program. The library comes with full support for truncation/move detection as
 it is designed to work with log rotation tools. The library works on all
 operating systems supported by Go, including POSIX systems like Linux, *BSD,
@@ -25,21 +25,17 @@ for line := range t.Lines {
 }
 ```
 
-See [API documentation](https://pkg.go.dev/github.com/nxadm/tail#section-documentation).
+See [API documentation](https://pkg.go.dev/github.com/SEKOIA-IO/tail#section-documentation).
 
 ## Installing
 
-    go get github.com/nxadm/tail/...
+    go get github.com/SEKOIA-IO/tail
 
 ## History
 
 This project is an active, drop-in replacement for the
-[abandoned](https://en.wikipedia.org/wiki/HPE_Helion) Go tail library at
-[hpcloud](https://github.com/hpcloud/tail). Next to
-[addressing open issues/PRs of the original project](https://github.com/nxadm/tail/issues/6),
-nxadm/tail continues the development by keeping up to date with the Go toolchain
-(e.g. go modules) and dependencies, completing the documentation, adding features
-and fixing bugs.
+abandoned Go tail library at [nxadm](https://github.com/nxadm/tail) 
+that itself is a fork of [hpcloud](https://github.com/hpcloud/tail).
 
 ## Examples
 Examples, e.g. used to debug an issue, are kept in the [examples directory](/examples).

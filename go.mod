@@ -1,4 +1,4 @@
-module github.com/nxadm/tail
+module github.com/SEKOIA-IO/tail
 
 go 1.17
 

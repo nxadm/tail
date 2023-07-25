@@ -1,4 +1,5 @@
-// Copyright (c) 2019 FOSS contributors of https://github.com/nxadm/tail
+// Copyright (c) 2019 FOSS contributors of https://github.com/SEKOIA-IO/tail
+//go:build !windows
 // +build !windows
 
 package tail

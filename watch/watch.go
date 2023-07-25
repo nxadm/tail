@@ -1,4 +1,4 @@
-// Copyright (c) 2019 FOSS contributors of https://github.com/nxadm/tail
+// Copyright (c) 2019 FOSS contributors of https://github.com/SEKOIA-IO/tail
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 

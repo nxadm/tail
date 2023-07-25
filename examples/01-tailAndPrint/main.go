@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/nxadm/tail"
+	"github.com/SEKOIA-IO/tail"
 )
 
 var logFile = "/var/log/syslog"
