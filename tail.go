@@ -2,11 +2,11 @@
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-//nxadm/tail provides a Go library that emulates the features of the BSD `tail`
-//program. The library comes with full support for truncation/move detection as
-//it is designed to work with log rotation tools. The library works on all
-//operating systems supported by Go, including POSIX systems like Linux and
-//*BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
+// nxadm/tail provides a Go library that emulates the features of the BSD `tail`
+// program. The library comes with full support for truncation/move detection as
+// it is designed to work with log rotation tools. The library works on all
+// operating systems supported by Go, including POSIX systems like Linux and
+// *BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
 package tail
 
 import (
@@ -70,11 +70,12 @@ type logger interface {
 // Config is used to specify how a file must be tailed.
 type Config struct {
 	// File-specifc
-	Location  *SeekInfo // Tail from this location. If nil, start at the beginning of the file
-	ReOpen    bool      // Reopen recreated files (tail -F)
-	MustExist bool      // Fail early if the file does not exist
-	Poll      bool      // Poll for file changes instead of using the default inotify
-	Pipe      bool      // The file is a named pipe (mkfifo)
+	Location            *SeekInfo // Tail from this location. If nil, start at the beginning of the file
+	ReOpen              bool      // Reopen recreated files (tail -F)
+	MustExist           bool      // Fail early if the file does not exist
+	Poll                bool      // Poll for file changes instead of using the default inotify
+	Pipe                bool      // The file is a named pipe (mkfifo)
+	DoNotTrimLineBreaks bool      // whether trimming trailing linebreaks is required
 
 	// Generic IO
 	Follow        bool // Continue looking for new lines (tail -f)
@@ -241,7 +242,9 @@ func (tail *Tail) readLine() (string, error) {
 	tail.lk.Unlock()
 
 	newlineEnding := strings.HasSuffix(line, "\n")
-	line = strings.TrimRight(line, "\n")
+	if !tail.DoNotTrimLineBreaks {
+		line = strings.TrimRight(line, "\n")
+	}
 
 	// if we don't have to handle incomplete lines, we can return the line as-is
 	if !tail.Config.CompleteLines {

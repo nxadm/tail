@@ -622,6 +622,29 @@ func TestIncompleteLinesWithoutFollow(t *testing.T) {
 	tail.Cleanup()
 }
 
+func TestDoNotTrimLineBreaks(t *testing.T) {
+	tailTest, cleanup := NewTailTest("do-not-trim-line-breaks", t)
+	defer cleanup()
+	filename := "test.txt"
+	config := Config{
+		DoNotTrimLineBreaks: true,
+	}
+	tail := tailTest.StartTail(filename, config)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		// intentionally missing a newline at the end
+		tailTest.CreateFile(filename, "foo\nbar\nbaz")
+	}()
+
+	lines := []string{"foo\n", "bar\n", "baz"}
+
+	tailTest.VerifyTailOutput(tail, lines, true)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
 func reSeek(t *testing.T, poll bool) {
 	var name string
 	if poll {
