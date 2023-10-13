@@ -282,6 +282,78 @@ func TestLocationMiddle(t *testing.T) {
 	tailTest.Cleanup(tail, true)
 }
 
+func TestNLastLinesEmptyFile(t *testing.T) {
+	// Test reading from middle.
+	tailTest, cleanup := NewTailTest("n-last-lines-empty-file", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "")
+	tail := tailTest.StartTail("test.txt", Config{Follow: true, N: 5})
+	go tailTest.VerifyTailOutput(tail, []string{"1 line"}, false)
+
+	<-time.After(100 * time.Millisecond)
+	tailTest.AppendFile("test.txt", "1 line\n")
+
+	// Delete after a reasonable delay, to give tail sufficient time
+	// to read all lines.
+	<-time.After(100 * time.Millisecond)
+	tailTest.RemoveFile("test.txt")
+	tailTest.Cleanup(tail, true)
+}
+
+func TestNLastLinesOneEmpty(t *testing.T) {
+	// Test reading from middle.
+	tailTest, cleanup := NewTailTest("n-last-lines-one-empty", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "\n")
+	tail := tailTest.StartTail("test.txt", Config{Follow: true, N: 5})
+	go tailTest.VerifyTailOutput(tail, []string{"", "1 line"}, false)
+
+	<-time.After(100 * time.Millisecond)
+	tailTest.AppendFile("test.txt", "1 line\n")
+
+	// Delete after a reasonable delay, to give tail sufficient time
+	// to read all lines.
+	<-time.After(100 * time.Millisecond)
+	tailTest.RemoveFile("test.txt")
+	tailTest.Cleanup(tail, true)
+}
+
+func TestNLastLines(t *testing.T) {
+	// Test reading from middle.
+	tailTest, cleanup := NewTailTest("n-last-lines", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "1 line\n2 line\n3 line\n")
+	tail := tailTest.StartTail("test.txt", Config{Follow: true, N: 5})
+	go tailTest.VerifyTailOutput(tail, []string{"1 line", "2 line", "3 line", "4 line"}, false)
+
+	<-time.After(100 * time.Millisecond)
+	tailTest.AppendFile("test.txt", "4 line\n")
+
+	// Delete after a reasonable delay, to give tail sufficient time
+	// to read all lines.
+	<-time.After(100 * time.Millisecond)
+	tailTest.RemoveFile("test.txt")
+	tailTest.Cleanup(tail, true)
+}
+
+func TestN5LastLines(t *testing.T) {
+	// Test reading from middle.
+	tailTest, cleanup := NewTailTest("n5-last-lines", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "1 line\n2 line\n3 line\n4 line\n5 line\n6 line\n")
+	tail := tailTest.StartTail("test.txt", Config{Follow: true, N: 5})
+	go tailTest.VerifyTailOutput(tail, []string{"2 line", "3 line", "4 line", "5 line", "6 line", "7 line"}, false)
+
+	<-time.After(100 * time.Millisecond)
+	tailTest.AppendFile("test.txt", "7 line\n")
+
+	// Delete after a reasonable delay, to give tail sufficient time
+	// to read all lines.
+	<-time.After(100 * time.Millisecond)
+	tailTest.RemoveFile("test.txt")
+	tailTest.Cleanup(tail, true)
+}
+
 // The use of polling file watcher could affect file rotation
 // (detected via renames), so test these explicitly.
 
