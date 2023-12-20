@@ -2,11 +2,11 @@
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-//nxadm/tail provides a Go library that emulates the features of the BSD `tail`
-//program. The library comes with full support for truncation/move detection as
-//it is designed to work with log rotation tools. The library works on all
-//operating systems supported by Go, including POSIX systems like Linux and
-//*BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
+// nxadm/tail provides a Go library that emulates the features of the BSD `tail`
+// program. The library comes with full support for truncation/move detection as
+// it is designed to work with log rotation tools. The library works on all
+// operating systems supported by Go, including POSIX systems like Linux and
+// *BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
 package tail
 
 import (
@@ -16,15 +16,17 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"gopkg.in/tomb.v1"
+
 	"github.com/nxadm/tail/ratelimiter"
 	"github.com/nxadm/tail/util"
 	"github.com/nxadm/tail/watch"
-	"gopkg.in/tomb.v1"
 )
 
 var (
@@ -221,7 +223,7 @@ func (tail *Tail) reopen() error {
 			if os.IsNotExist(err) {
 				tail.Logger.Printf("Waiting for %s to appear...", tail.Filename)
 				if err := tail.watcher.BlockUntilExists(&tail.Tomb); err != nil {
-					if err == tomb.ErrDying {
+					if errors.Is(err, tomb.ErrDying) {
 						return err
 					}
 					return fmt.Errorf("Failed to detect creation of %s: %s", tail.Filename, err)
@@ -275,7 +277,7 @@ func (tail *Tail) tailFileSync() {
 		// deferred first open.
 		err := tail.reopen()
 		if err != nil {
-			if err != tomb.ErrDying {
+			if !errors.Is(err, tomb.ErrDying) {
 				tail.Kill(err)
 			}
 			return
@@ -284,9 +286,24 @@ func (tail *Tail) tailFileSync() {
 
 	// Seek to requested location on first open of the file.
 	if tail.Location != nil {
-		_, err := tail.file.Seek(tail.Location.Offset, tail.Location.Whence)
-		if err != nil {
-			tail.Killf("Seek error on %s: %s", tail.Filename, err)
+		offset := tail.Location.Offset
+		if tail.Location.Whence == io.SeekEnd && offset < 0 {
+			ret, err := tail.file.Seek(0, io.SeekEnd)
+			if err != nil {
+				_ = tail.Killf("Seek error on %s: %s", tail.Filename, err)
+				return
+			}
+
+			// if ret > abs(offset), use offset
+			// otherwise, use ret
+
+			if ret < int64(math.Abs(float64(offset))) {
+				offset = ret
+			}
+		}
+
+		if _, err := tail.file.Seek(offset, tail.Location.Whence); err != nil {
+			_ = tail.Killf("Seek error on %s: %s", tail.Filename, err)
 			return
 		}
 	}
@@ -312,7 +329,7 @@ func (tail *Tail) tailFileSync() {
 			if cooloff {
 				// Wait a second before seeking till the end of
 				// file when rate limit is reached.
-				msg := ("Too much log activity; waiting a second before resuming tailing")
+				msg := "Too much log activity; waiting a second before resuming tailing"
 				offset, _ := tail.Tell()
 				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg)}
 				select {
@@ -346,7 +363,7 @@ func (tail *Tail) tailFileSync() {
 			// implementation (inotify or polling).
 			err := tail.waitForChanges()
 			if err != nil {
-				if err != ErrStop {
+				if !errors.Is(err, ErrStop) {
 					tail.Kill(err)
 				}
 				return
@@ -359,7 +376,7 @@ func (tail *Tail) tailFileSync() {
 
 		select {
 		case <-tail.Dying():
-			if tail.Err() == errStopAtEOF {
+			if errors.Is(tail.Err(), errStopAtEOF) {
 				continue
 			}
 			return
