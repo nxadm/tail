@@ -298,7 +298,7 @@ func (tail *Tail) tailFileSync() {
 			// otherwise, use ret
 
 			if ret < int64(math.Abs(float64(offset))) {
-				offset = ret
+				offset = -ret
 			}
 		}
 
