@@ -298,10 +298,12 @@ func (tail *Tail) tailFileSync() {
 		// do not seek in named pipes
 		if !tail.Pipe {
 			// grab the position in case we need to back up in the event of a half-line
-			if _, err := tail.Tell(); err != nil {
+			offset, err := tail.Tell()
+			if err != nil {
 				tail.Kill(err)
 				return
 			}
+			tail.Location = &SeekInfo{Offset: offset, Whence: io.SeekStart}
 		}
 
 		line, err := tail.readLine()
