@@ -622,6 +622,26 @@ func TestIncompleteLinesWithoutFollow(t *testing.T) {
 	tail.Cleanup()
 }
 
+func TestFollowUntilEof(t *testing.T) {
+	tailTest, cleanup := NewTailTest("incomplete-lines-no-follow", t)
+	defer cleanup()
+	filename := "test.txt"
+	config := Config{
+		Follow: false,
+	}
+	tailTest.CreateFile(filename, "hello\nworld\n")
+	tail := tailTest.StartTail(filename, config)
+
+	// StopAtEOF blocks until the read is done and in order to do so
+	// we have to drain the lines channel first which ReadLinesWithError does.
+	go tail.StopAtEOF()
+	tailTest.ReadLinesWithError(tail, []string{"hello", "world"}, false, errStopAtEOF)
+
+	tailTest.RemoveFile(filename)
+	tail.Stop()
+	tail.Cleanup()
+}
+
 func reSeek(t *testing.T, poll bool) {
 	var name string
 	if poll {
@@ -765,6 +785,14 @@ func (t TailTest) VerifyTailOutputUsingCursor(tail *Tail, lines []string, expect
 }
 
 func (t TailTest) ReadLines(tail *Tail, lines []string, useCursor bool) {
+	t.readLines(tail, lines, useCursor, nil)
+}
+
+func (t TailTest) ReadLinesWithError(tail *Tail, lines []string, useCursor bool, err error) {
+	t.readLines(tail, lines, useCursor, err)
+}
+
+func (t TailTest) readLines(tail *Tail, lines []string, useCursor bool, expectErr error) {
 	cursor := 1
 
 	for _, line := range lines {
@@ -773,8 +801,8 @@ func (t TailTest) ReadLines(tail *Tail, lines []string, useCursor bool) {
 			if !ok {
 				// tail.Lines is closed and empty.
 				err := tail.Err()
-				if err != nil {
-					t.Fatalf("tail ended with error: %v", err)
+				if err != expectErr {
+					t.Fatalf("tail ended with unexpected error: %v", err)
 				}
 				t.Fatalf("tail ended early; expecting more: %v", lines[cursor:])
 			}
