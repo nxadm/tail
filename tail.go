@@ -372,6 +372,17 @@ func (tail *Tail) tailFileSync() {
 // moved or truncated. When moved or deleted - the file will be
 // reopened if ReOpen is true. Truncated files are always reopened.
 func (tail *Tail) waitForChanges() error {
+	if tail.Pipe {
+		// If input is a fifo, we can reopen immediately
+		tail.Logger.Printf("Re-opening named pipe %s ...", tail.Filename)
+		if err := tail.reopen(); err != nil {
+			return err
+		}
+		tail.Logger.Printf("Successfully reopened pipe %s", tail.Filename)
+		tail.openReader()
+		return nil
+	}
+
 	if tail.changes == nil {
 		pos, err := tail.file.Seek(0, io.SeekCurrent)
 		if err != nil {
@@ -426,7 +437,11 @@ func (tail *Tail) openReader() {
 }
 
 func (tail *Tail) seekEnd() error {
-	return tail.seekTo(SeekInfo{Offset: 0, Whence: io.SeekEnd})
+	if !tail.Pipe {
+		return tail.seekTo(SeekInfo{Offset: 0, Whence: io.SeekEnd})
+	} else {
+		return nil
+	}
 }
 
 func (tail *Tail) seekTo(pos SeekInfo) error {
