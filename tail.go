@@ -77,9 +77,10 @@ type Config struct {
 	Pipe      bool      // The file is a named pipe (mkfifo)
 
 	// Generic IO
-	Follow        bool // Continue looking for new lines (tail -f)
-	MaxLineSize   int  // If non-zero, split longer lines into multiple lines
-	CompleteLines bool // Only return complete lines (that end with "\n" or EOF when Follow is false)
+	Follow             bool // Continue looking for new lines (tail -f)
+	MaxLineSize        int  // If non-zero, split longer lines into multiple lines
+	CompleteLines      bool // Only return complete lines (that end with "\n" or EOF when Follow is false)
+	KeepBufferOnReOpen bool // Keep line buffer accross reopening a file.
 
 	// Optionally, use a ratelimiter (e.g. created by the ratelimiter/NewLeakyBucket function)
 	RateLimiter *ratelimiter.LeakyBucket
@@ -209,7 +210,7 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
-	if tail.lineBuf != nil {
+	if !tail.KeepBufferOnReOpen && tail.lineBuf != nil {
 		tail.lineBuf.Reset()
 	}
 	tail.closeFile()
