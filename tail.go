@@ -139,7 +139,7 @@ func validateBackoffConfig(bc ReOpenBackoff) ReOpenBackoff {
 	}
 
 	if bc.InitialBackoff <= 0 {
-		bc.InitialBackoff = 100 * time.Second
+		bc.InitialBackoff = 100 * time.Millisecond
 	}
 
 	if bc.MaxBackoff == 0 {
@@ -158,6 +158,8 @@ func TailFile(filename string, config Config) (*Tail, error) {
 	if config.ReOpen && !config.Follow {
 		util.Fatal("cannot set ReOpen without Follow.")
 	}
+
+	config.ReOpenBackoff = validateBackoffConfig(config.ReOpenBackoff)
 
 	t := &Tail{
 		Filename: filename,
