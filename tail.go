@@ -99,8 +99,10 @@ type Tail struct {
 	reader  *bufio.Reader
 	lineNum int
 
+	// Values to handle closing during wait
 	lastOffset  int64
 	lastLineNum int
+	keepBuffer  bool
 
 	lineBuf *strings.Builder
 
@@ -213,7 +215,7 @@ func (tail *Tail) closeFile() {
 }
 
 func (tail *Tail) reopen() error {
-	if !tail.KeepBufferOnReOpen && tail.lineBuf != nil {
+	if !tail.keepBuffer && !tail.KeepBufferOnReOpen && tail.lineBuf != nil {
 		tail.lineBuf.Reset()
 	}
 	tail.closeFile()
@@ -243,11 +245,6 @@ func (tail *Tail) readLine() (string, error) {
 	tail.lk.Lock()
 	line, err := tail.reader.ReadString('\n')
 	tail.lk.Unlock()
-
-	loc, tellErr := tail.Tell()
-	if tellErr != nil {
-		tail.lastOffset = loc
-	}
 
 	newlineEnding := strings.HasSuffix(line, "\n")
 	line = strings.TrimRight(line, "\n")
@@ -425,6 +422,9 @@ func (tail *Tail) waitForChanges() error {
 	}
 
 	if tail.CloseWhileWaiting {
+		// Since we are just waiting for the file to update, we don't want
+		// to reset our line buffer
+		tail.keepBuffer = true
 		tail.waitCloseFile()
 	}
 
@@ -432,9 +432,15 @@ func (tail *Tail) waitForChanges() error {
 	case <-tail.changes.Modified:
 		if tail.CloseWhileWaiting {
 			tail.waitReopenFile()
+			// Now that the file is re-opened, we want to keep the normal
+			// line buffer reset logic
+			tail.keepBuffer = false
 		}
 		return nil
 	case <-tail.changes.Deleted:
+		// If the event is not an updated modification, we want to use the
+		// normal line buffer reset logic
+		tail.keepBuffer = false
 		tail.changes = nil
 		if tail.ReOpen {
 			// XXX: we must not log from a library.
@@ -449,6 +455,9 @@ func (tail *Tail) waitForChanges() error {
 		tail.Logger.Printf("Stopping tail as file no longer exists: %s", tail.Filename)
 		return ErrStop
 	case <-tail.changes.Truncated:
+		// If the event is not an updated modification, we want to use the
+		// normal line buffer reset logic
+		tail.keepBuffer = false
 		// Always reopen truncated files (Follow is true)
 		tail.Logger.Printf("Re-opening truncated file %s ...", tail.Filename)
 		if err := tail.reopen(); err != nil {
@@ -458,6 +467,9 @@ func (tail *Tail) waitForChanges() error {
 		tail.openReader()
 		return nil
 	case <-tail.Dying():
+		// If the event is not an updated modification, we want to use the
+		// normal line buffer reset logic
+		tail.keepBuffer = false
 		return ErrStop
 	}
 }
