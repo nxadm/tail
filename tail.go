@@ -1,12 +1,11 @@
-// Copyright (c) 2019 FOSS contributors of https://github.com/nxadm/tail
 // Copyright (c) 2015 HPE Software Inc. All rights reserved.
 // Copyright (c) 2013 ActiveState Software Inc. All rights reserved.
 
-//nxadm/tail provides a Go library that emulates the features of the BSD `tail`
-//program. The library comes with full support for truncation/move detection as
-//it is designed to work with log rotation tools. The library works on all
-//operating systems supported by Go, including POSIX systems like Linux and
-//*BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
+// nxadm/tail provides a Go library that emulates the features of the BSD `tail`
+// program. The library comes with full support for truncation/move detection as
+// it is designed to work with log rotation tools. The library works on all
+// operating systems supported by Go, including POSIX systems like Linux and
+// *BSD, and MS Windows. Go 1.9 is the oldest compiler release supported.
 package tail
 
 import (
@@ -81,6 +80,7 @@ type Config struct {
 	MaxLineSize        int  // If non-zero, split longer lines into multiple lines
 	CompleteLines      bool // Only return complete lines (that end with "\n" or EOF when Follow is false)
 	KeepBufferOnReOpen bool // Keep line buffer accross reopening a file.
+	CloseWhileWaiting  bool // Whether or not to close the file while waiting for newlines.
 
 	// Optionally, use a ratelimiter (e.g. created by the ratelimiter/NewLeakyBucket function)
 	RateLimiter *ratelimiter.LeakyBucket
@@ -98,6 +98,9 @@ type Tail struct {
 	file    *os.File
 	reader  *bufio.Reader
 	lineNum int
+
+	lastOffset  int64
+	lastLineNum int
 
 	lineBuf *strings.Builder
 
@@ -241,6 +244,11 @@ func (tail *Tail) readLine() (string, error) {
 	line, err := tail.reader.ReadString('\n')
 	tail.lk.Unlock()
 
+	loc, tellErr := tail.Tell()
+	if tellErr != nil {
+		tail.lastOffset = loc
+	}
+
 	newlineEnding := strings.HasSuffix(line, "\n")
 	line = strings.TrimRight(line, "\n")
 
@@ -266,6 +274,36 @@ func (tail *Tail) readLine() (string, error) {
 		}
 		return line, io.EOF
 	}
+}
+
+func (tail *Tail) waitCloseFile() {
+	tail.lastLineNum = tail.lineNum
+	loc, err := tail.Tell()
+	tail.closeFile()
+
+	if err != nil {
+		return
+	}
+
+	tail.lastOffset = loc
+}
+
+func (tail *Tail) waitReopenFile() {
+	err := tail.reopen()
+	tail.lineNum = tail.lastLineNum
+	if err != nil {
+		if err != tomb.ErrDying {
+			tail.Kill(err)
+		}
+		return
+	}
+
+	_, err = tail.file.Seek(tail.lastOffset, io.SeekStart)
+	if err != nil {
+		tail.Killf("Seek error on %s: %s", tail.Filename, err)
+		return
+	}
+	tail.openReader()
 }
 
 func (tail *Tail) tailFileSync() {
@@ -315,6 +353,7 @@ func (tail *Tail) tailFileSync() {
 				// file when rate limit is reached.
 				msg := ("Too much log activity; waiting a second before resuming tailing")
 				offset, _ := tail.Tell()
+				tail.lastOffset = offset
 				tail.Lines <- &Line{msg, tail.lineNum, SeekInfo{Offset: offset}, time.Now(), errors.New(msg)}
 				select {
 				case <-time.After(time.Second):
@@ -378,14 +417,22 @@ func (tail *Tail) waitForChanges() error {
 		if err != nil {
 			return err
 		}
+		tail.lastOffset = pos
 		tail.changes, err = tail.watcher.ChangeEvents(&tail.Tomb, pos)
 		if err != nil {
 			return err
 		}
 	}
 
+	if tail.CloseWhileWaiting {
+		tail.waitCloseFile()
+	}
+
 	select {
 	case <-tail.changes.Modified:
+		if tail.CloseWhileWaiting {
+			tail.waitReopenFile()
+		}
 		return nil
 	case <-tail.changes.Deleted:
 		tail.changes = nil
@@ -454,6 +501,7 @@ func (tail *Tail) sendLine(line string) bool {
 	for _, line := range lines {
 		tail.lineNum++
 		offset, _ := tail.Tell()
+		tail.lastOffset = offset
 		select {
 		case tail.Lines <- &Line{line, tail.lineNum, SeekInfo{Offset: offset}, now, nil}:
 		case <-tail.Dying():
