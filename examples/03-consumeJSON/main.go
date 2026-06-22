@@ -36,13 +36,13 @@ func main() {
 	go createJSON(file)
 	var js jsonStruct
 	for line := range t.Lines {
-		fmt.Printf("JSON: " + line.Text + "\n")
+		fmt.Print("JSON: " + line.Text + "\n")
 
 		err := json.Unmarshal([]byte(line.Text), &js)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("JSON counter field: " + js.Counter + "\n")
+		fmt.Print("JSON counter field: " + js.Counter + "\n")
 	}
 }
 
