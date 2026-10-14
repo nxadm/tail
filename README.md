@@ -43,3 +43,24 @@ and fixing bugs.
 
 ## Examples
 Examples, e.g. used to debug an issue, are kept in the [examples directory](/examples).
+
+## Custom logging
+
+`Config.Logger` accepts any value with a `Printf(format string, args ...interface{})`
+method. A standard `*log.Logger` works directly. To use another logging API,
+adapt just that method, for example:
+
+```go
+type tailLogger struct {
+    log *slog.Logger
+}
+
+func (l tailLogger) Printf(format string, args ...interface{}) {
+    l.log.Info(fmt.Sprintf(format, args...))
+}
+
+// Pass tailLogger{log: slog.Default()} as Config.Logger.
+```
+
+The `slog` example requires Go 1.21 or later. Keep the concrete logger if your
+application also needs its other methods; `Config.Logger` exposes only `Printf`.
