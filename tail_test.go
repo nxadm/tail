@@ -123,6 +123,36 @@ func TestStopNonEmptyFile(t *testing.T) {
 	// success here is if it doesn't panic.
 }
 
+// hpcloud/tail#153: Stop followed by Cleanup called RemoveWatch twice and drove
+// the watch counter to -1, so tailing the same file again never saw new lines.
+func TestTailAgainAfterStopAndCleanup(t *testing.T) {
+	tailTest, cleanup := NewTailTest("tail-again-after-cleanup", t)
+	defer cleanup()
+	tailTest.CreateFile("test.txt", "")
+
+	tail := tailTest.StartTail("test.txt", Config{Follow: true})
+	tail.Stop()
+	tail.Cleanup()
+	// Stop doesn't wait for the old tail's change-events goroutine, which calls
+	// RemoveWatch on its own schedule; if that lands after the new tail's Watch,
+	// it unregisters the new tail's watch. Give it time to run first.
+	<-time.After(100 * time.Millisecond)
+
+	tail = tailTest.StartTail("test.txt", Config{Follow: true})
+	defer tail.Cleanup()
+	defer tail.Stop()
+	<-time.After(100 * time.Millisecond)
+	tailTest.AppendFile("test.txt", "hello\n")
+	select {
+	case line := <-tail.Lines:
+		if line.Text != "hello" {
+			t.Fatalf("got %q, want %q", line.Text, "hello")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no line after tailing the file again")
+	}
+}
+
 func TestStopAtEOF(t *testing.T) {
 	tailTest, cleanup := NewTailTest("maxlinesize", t)
 	defer cleanup()
