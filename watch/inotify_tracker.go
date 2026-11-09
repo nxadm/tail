@@ -176,10 +176,18 @@ func (shared *InotifyTracker) removeWatch(winfo *watchInfo) error {
 		// Watch for new files to be created in the parent directory.
 		fname = filepath.Dir(fname)
 	}
-	shared.watchNums[fname]--
-	watchNum := shared.watchNums[fname]
-	if watchNum == 0 {
-		delete(shared.watchNums, fname)
+	// RemoveWatch can be called more often than Watch (on Stop and again on
+	// Cleanup, or after a failed Watch), so only decrement a counter that
+	// addWatch created: a negative count would make addWatch skip
+	// watcher.Add for this path.
+	watchNum, watched := shared.watchNums[fname]
+	if watched {
+		watchNum--
+		if watchNum <= 0 {
+			delete(shared.watchNums, fname)
+		} else {
+			shared.watchNums[fname] = watchNum
+		}
 	}
 	shared.mux.Unlock()
 
@@ -188,7 +196,7 @@ func (shared *InotifyTracker) removeWatch(winfo *watchInfo) error {
 	// This needs to happen after releasing the lock because fsnotify waits
 	// synchronously for the kernel to acknowledge the removal of the watch
 	// for this file, which causes us to deadlock if we still held the lock.
-	if watchNum == 0 {
+	if watched && watchNum <= 0 {
 		err = shared.watcher.Remove(fname)
 	}
 
